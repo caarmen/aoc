@@ -29,10 +29,12 @@
            DEPENDING ON LS-FILE-LENGTH.
            05 LS-DATA-ITEM-1         PIC 9(5) COMP.
        01 LS-DATA-TABLE-2 OCCURS 1 TO C-MAX-FILE-LENGTH TIMES
-           DEPENDING ON LS-FILE-LENGTH.
+           DEPENDING ON LS-FILE-LENGTH
+           INDEXED BY LS-SEARCH-INDEX.
            05 LS-DATA-ITEM-2         PIC 9(5) COMP.
        01 LS-DIFFERENCE-ROW          PIC 9(5).
        01 LS-DIFFERENCE-ACC          PIC 9(10) VALUE 0.
+       01 LS-SIMILARITY-ACC          PIC 9(10) VALUE 0.
        PROCEDURE DIVISION.
 
       *> Read the file path from the command line arguments.
@@ -61,15 +63,29 @@
        SORT LS-DATA-TABLE-1 ON ASCENDING KEY LS-DATA-ITEM-1
        SORT LS-DATA-TABLE-2 ON ASCENDING KEY LS-DATA-ITEM-2
 
-      *> Calculate the absolute difference for each pair of items
-      *> from the two tables, and display the sum.
        PERFORM VARYING LS-TABLE-INDEX FROM 1 BY 1
            UNTIL LS-TABLE-INDEX > LS-FILE-LENGTH
+      *> Part 1: Calculate the absolute difference for each pair of
+      *> items from the two tables, and display the sum.
                COMPUTE LS-DIFFERENCE-ROW = FUNCTION ABS(
                    LS-DATA-ITEM-1(LS-TABLE-INDEX) -
                    LS-DATA-ITEM-2(LS-TABLE-INDEX))
                COMPUTE LS-DIFFERENCE-ACC = LS-DIFFERENCE-ACC
                    + LS-DIFFERENCE-ROW
+      *> Part 2: Calculate the number of times the item from the first
+      *> table appears in the second table.
+      *> The sum of these calculations is the similarity.
+               SET LS-SEARCH-INDEX TO 1
+               PERFORM UNTIL LS-SEARCH-INDEX > LS-FILE-LENGTH
+                   SEARCH LS-DATA-TABLE-2
+                       WHEN LS-DATA-ITEM-2(LS-SEARCH-INDEX)
+                           = LS-DATA-ITEM-1(LS-TABLE-INDEX)
+                           COMPUTE LS-SIMILARITY-ACC = LS-SIMILARITY-ACC
+                               + LS-DATA-ITEM-1(LS-TABLE-INDEX)
+                   END-SEARCH
+                   SET LS-SEARCH-INDEX UP BY 1
+               END-PERFORM
        END-PERFORM
        DISPLAY LS-DIFFERENCE-ACC
+       DISPLAY LS-SIMILARITY-ACC
        .
