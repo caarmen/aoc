@@ -75,15 +75,12 @@
       *> Part 2: Calculate the number of times the item from the first
       *> table appears in the second table.
       *> The sum of these calculations is the similarity.
-               SET LS-SEARCH-INDEX TO 1
-               PERFORM UNTIL LS-SEARCH-INDEX > LS-FILE-LENGTH
-                   SEARCH LS-DATA-TABLE-2
-                       WHEN LS-DATA-ITEM-2(LS-SEARCH-INDEX)
-                           = LS-DATA-ITEM-1(LS-TABLE-INDEX)
+               PERFORM VARYING LS-SEARCH-INDEX FROM 1 BY 1
+                   UNTIL LS-SEARCH-INDEX > LS-FILE-LENGTH
+                       IF LS-DATA-ITEM-1(LS-TABLE-INDEX) =
+                           LS-DATA-ITEM-2(LS-SEARCH-INDEX)
                            COMPUTE LS-SIMILARITY-ACC = LS-SIMILARITY-ACC
                                + LS-DATA-ITEM-1(LS-TABLE-INDEX)
-                   END-SEARCH
-                   SET LS-SEARCH-INDEX UP BY 1
                END-PERFORM
        END-PERFORM
        DISPLAY LS-DIFFERENCE-ACC
