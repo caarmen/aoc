@@ -15,10 +15,15 @@
        01  F-DATA-RECORD     PIC X(5000).
 
        LOCAL-STORAGE SECTION.
-       01  LS-FILE-PATH      PIC X(20).
-       01  LS-LINE           PIC X(5000).
-       01  LS-LINE-VALUE     USAGE BINARY-LONG.
-       01  LS-TOTAL          USAGE BINARY-LONG.
+       01  LS-FILE-PATH         PIC X(20).
+       01  LS-LINE              PIC X(5000).
+       01  LS-LINE-LENGTH       USAGE BINARY-LONG.
+       01  LS-LINE-VALUE        USAGE BINARY-LONG.
+       01  LS-TOTAL             USAGE BINARY-LONG.
+       01  LS-INSTRUCTION-GROUP PIC X(5000).
+       01  LS-PREV-DELIMITER    PIC X(7) VALUE "do()".
+       01  LS-DELIMITER         PIC X(7).
+       01  LS-INSTRUCTION-PTR   USAGE BINARY-LONG.
 
        PROCEDURE DIVISION.
            ACCEPT LS-FILE-PATH FROM COMMAND-LINE.
@@ -29,11 +34,29 @@
                AT END
                    EXIT PERFORM
                NOT AT END
-                   MOVE F-DATA-RECORD TO LS-LINE
-                   CALL "PARSE-LINE" USING
-                       BY REFERENCE LS-LINE
-                       RETURNING LS-LINE-VALUE
-                   COMPUTE LS-TOTAL = LS-TOTAL + LS-LINE-VALUE
+                   STRING LS-PREV-DELIMITER F-DATA-RECORD INTO LS-LINE
+                   SET LS-LINE-LENGTH TO LENGTH OF FUNCTION
+                       TRIM(LS-LINE)
+                   SET LS-INSTRUCTION-PTR TO 1
+                   PERFORM UNTIL LS-INSTRUCTION-PTR > LS-LINE-LENGTH
+                       UNSTRING LS-LINE
+                           DELIMITED BY ALL "do()" OR "don't()"
+                           INTO LS-INSTRUCTION-GROUP
+                           DELIMITER IN LS-DELIMITER
+                           WITH POINTER LS-INSTRUCTION-PTR
+                       END-UNSTRING
+                       IF LS-PREV-DELIMITER(1:4) = "do()"
+                       THEN
+                           CALL "PARSE-LINE" USING
+                               BY REFERENCE LS-INSTRUCTION-GROUP
+                               RETURNING LS-LINE-VALUE
+                           COMPUTE LS-TOTAL = LS-TOTAL + LS-LINE-VALUE
+                       END-IF
+                       IF LS-DELIMITER NOT = SPACES
+                       THEN
+                           MOVE LS-DELIMITER TO LS-PREV-DELIMITER
+                       END-IF
+                   END-PERFORM
            END-PERFORM
 
            DISPLAY LS-TOTAL
