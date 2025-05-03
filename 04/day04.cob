@@ -4,7 +4,45 @@
        DATA DIVISION.
 
        LOCAL-STORAGE SECTION.
+      *> Command-line arguments:
+       01  LS-COMMAND-LINE                  PIC X(103).
+       01  LS-PART                          PIC 9(1).
        01  LS-FILE-PATH                     PIC X(20).
+       COPY "grid" IN "04".
+
+       PROCEDURE DIVISION
+           .
+           ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
+           UNSTRING LS-COMMAND-LINE
+               DELIMITED BY " "
+               INTO LS-PART LS-FILE-PATH
+
+           CALL "PARSE-GRID" USING
+               BY REFERENCE LS-FILE-PATH
+               BY REFERENCE GRID
+               BY REFERENCE GRID-SIZE
+
+           IF LS-PART = 1
+           THEN
+               CALL "PART-01" USING
+               BY REFERENCE GRID
+               BY REFERENCE GRID-SIZE
+           ELSE
+               CALL "PART-02" USING
+               BY REFERENCE GRID
+               BY REFERENCE GRID-SIZE
+           END-IF
+           GOBACK.
+       END PROGRAM DAY04.
+
+
+      *> ===============================================================
+      *> PART-01.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PART-01.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
        01  LS-ROW-INDEX                     PIC 9(3) USAGE COMP VALUE 1.
        01  LS-COL-INDEX                     PIC 9(3) USAGE COMP VALUE 1.
        01  LS-GRID-COL                      PIC X(140) VALUE SPACES.
@@ -16,16 +54,12 @@
        01  LS-DIAGONAL-TLBR-2               PIC X(140) VALUE SPACES.
        01  LS-DIAGONAL-TRBL-2               PIC X(140) VALUE SPACES.
        01  LS-DIAGONALS-COUNT               PIC 9(1) USAGE COMP VALUE 4.
+       LINKAGE SECTION.
        COPY "grid" IN "04".
 
-       PROCEDURE DIVISION
-           .
-
-           ACCEPT LS-FILE-PATH FROM COMMAND-LINE
-           CALL "PARSE-GRID" USING
-               BY REFERENCE LS-FILE-PATH
-               BY REFERENCE GRID
-               BY REFERENCE GRID-SIZE
+       PROCEDURE DIVISION USING
+           BY REFERENCE GRID
+           BY REFERENCE GRID-SIZE.
 
       *> Search rows for XMAS
            PERFORM VARYING LS-ROW-INDEX FROM 1 BY 1
@@ -83,7 +117,7 @@
            END-PERFORM
            DISPLAY "Total XMAS count: " LS-TOTAL-XMAS-COUNT
            GOBACK.
-       END PROGRAM DAY04.
+       END PROGRAM PART-01.
 
       *> ===============================================================
       *> PARSE-GRID.
@@ -352,3 +386,97 @@
        END PROGRAM COUNT-XMAS.
 
 
+      *> ===============================================================
+      *> PART-02
+      *>
+      *> Return the number of occurrences of the X-MAS cross in the
+      *> given text.
+      *>
+      *> We look for these patterns:
+      *>
+      *> M M  M S  S S  S M
+      *>  A    A    A    A
+      *> S S  M S  M M  S M
+      *>
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PART-02.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-COUNT                         PIC 9(9) USAGE COMP VALUE 0.
+       01  LS-ROW-INDEX                     PIC 9(3) USAGE COMP VALUE 1.
+       01  LS-COL-INDEX                     PIC 9(3) USAGE COMP VALUE 1.
+
+       LINKAGE SECTION.
+       COPY "grid" IN "04".
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE GRID
+           BY REFERENCE GRID-SIZE.
+
+           PERFORM VARYING
+               LS-ROW-INDEX FROM 2 BY 1 UNTIL LS-ROW-INDEX = GRID-SIZE
+               AFTER
+               LS-COL-INDEX FROM 2 BY 1 UNTIL LS-COL-INDEX = GRID-SIZE
+
+               IF GRID-CELL(LS-ROW-INDEX,LS-COL-INDEX) = "A"
+               THEN
+                   EVALUATE TRUE
+      *> M M
+      *>  A
+      *> S S
+                       WHEN
+                           GRID-CELL(LS-ROW-INDEX - 1, LS-COL-INDEX - 1)
+                           = "M"
+                       AND GRID-CELL(LS-ROW-INDEX - 1, LS-COL-INDEX + 1)
+                           = "M"
+                       AND GRID-CELL(LS-ROW-INDEX + 1, LS-COL-INDEX - 1)
+                           = "S"
+                       AND GRID-CELL(LS-ROW-INDEX + 1, LS-COL-INDEX + 1)
+                           = "S"
+                           ADD 1 TO LS-COUNT
+      *> M S
+      *>  A
+      *> M S
+                       WHEN
+                           GRID-CELL(LS-ROW-INDEX - 1, LS-COL-INDEX - 1)
+                           = "M"
+                       AND GRID-CELL(LS-ROW-INDEX - 1, LS-COL-INDEX + 1)
+                           = "S"
+                       AND GRID-CELL(LS-ROW-INDEX + 1, LS-COL-INDEX - 1)
+                           = "M"
+                       AND GRID-CELL(LS-ROW-INDEX + 1, LS-COL-INDEX + 1)
+                           = "S"
+                           ADD 1 TO LS-COUNT
+      *> S S
+      *>  A
+      *> M M
+                       WHEN
+                           GRID-CELL(LS-ROW-INDEX - 1, LS-COL-INDEX - 1)
+                           = "S"
+                       AND GRID-CELL(LS-ROW-INDEX - 1, LS-COL-INDEX + 1)
+                           = "S"
+                       AND GRID-CELL(LS-ROW-INDEX + 1, LS-COL-INDEX - 1)
+                           = "M"
+                       AND GRID-CELL(LS-ROW-INDEX + 1, LS-COL-INDEX + 1)
+                           = "M"
+                           ADD 1 TO LS-COUNT
+      *> S M
+      *>  A
+      *> S M
+                       WHEN
+                           GRID-CELL(LS-ROW-INDEX - 1, LS-COL-INDEX - 1)
+                           = "S"
+                       AND GRID-CELL(LS-ROW-INDEX - 1, LS-COL-INDEX + 1)
+                           = "M"
+                       AND GRID-CELL(LS-ROW-INDEX + 1, LS-COL-INDEX - 1)
+                           = "S"
+                       AND GRID-CELL(LS-ROW-INDEX + 1, LS-COL-INDEX + 1)
+                           = "M"
+                           ADD 1 TO LS-COUNT
+
+               END-IF
+           END-PERFORM
+           DISPLAY "X-MAS count " LS-COUNT
+           GOBACK.
+       END PROGRAM PART-02.
