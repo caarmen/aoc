@@ -18,6 +18,9 @@
        01  LS-LINE                       PIC X(100).
        01  LS-UPDATE-RESULT              USAGE BINARY-LONG VALUE 0.
        01  LS-TOTAL-RESULT               USAGE BINARY-LONG VALUE 0.
+       01  LS-CORRECTED-RESULT           USAGE BINARY-LONG VALUE 0.
+       01  LS-TOTAL-CORRECTED-RESULT     USAGE BINARY-LONG VALUE 0.
+       01  LS-UPDATE-MIDDLE-INDEX        PIC 9(2) USAGE COMP.
        COPY "rules" IN "05".
        COPY "update" IN "05".
 
@@ -44,10 +47,24 @@
                        RETURNING LS-UPDATE-RESULT
                    COMPUTE LS-TOTAL-RESULT = LS-TOTAL-RESULT +
                        LS-UPDATE-RESULT
+                       IF LS-UPDATE-RESULT = 0
+                       THEN
+                           CALL "SORT-ITEMS" USING
+                               BY REFERENCE RULES-GRP
+                               BY REFERENCE UPDATES-GRP
+                           COMPUTE LS-UPDATE-MIDDLE-INDEX =
+                                   (UPDATE-SIZE / 2) + 1
+                           COMPUTE LS-CORRECTED-RESULT =
+                               UPDATE-ITEM(LS-UPDATE-MIDDLE-INDEX)
+                           ADD LS-CORRECTED-RESULT TO
+                               LS-TOTAL-CORRECTED-RESULT
+
+                       END-IF
            END-PERFORM
            CLOSE FD-DATA
 
            DISPLAY "RESULT: " LS-TOTAL-RESULT
+           DISPLAY "CORRECTED RESULT: " LS-TOTAL-CORRECTED-RESULT
            GOBACK.
        END PROGRAM DAY05.
 
@@ -265,3 +282,144 @@
 
            GOBACK.
        END PROGRAM CHECK-UPDATE-ITEM.
+      *> ===============================================================
+      *> SORT-ITEMS.
+      *>
+      *> Not only did I search for the algo on wikipedia, but I also
+      *> picked the easest algo (worst performance):
+      *> https://en.wikipedia.org/wiki/Bubble_sort
+      *>
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SORT-ITEMS.
+
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-SORT-INDEX         PIC 9(2) USAGE COMP.
+       01  LS-COMPARISON         USAGE BINARY-LONG.
+       01  LS-SWAPPED            PIC 9(1) VALUE 0.
+       01  LS-TEMP-ITEM          PIC 9(2) USAGE COMP.
+       LINKAGE SECTION.
+       COPY "rules" IN "05".
+       COPY "update" IN "05".
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE RULES-GRP
+           BY REFERENCE UPDATES-GRP.
+
+           SET LS-SWAPPED TO 1
+           PERFORM UNTIL LS-SWAPPED = 0
+               SET LS-SWAPPED TO 0
+               PERFORM VARYING LS-SORT-INDEX FROM 2 BY 1 UNTIL
+                   LS-SORT-INDEX > UPDATE-SIZE
+                   CALL "COMPARE-TWO-ITEMS" USING
+                       BY REFERENCE UPDATE-ITEM(LS-SORT-INDEX - 1)
+                       BY REFERENCE UPDATE-ITEM(LS-SORT-INDEX)
+                       BY REFERENCE RULES-GRP
+                       RETURNING LS-COMPARISON
+
+                       IF LS-COMPARISON = 1
+                       THEN
+                           SET LS-SWAPPED TO 1
+                           SET LS-TEMP-ITEM TO
+                               UPDATE-ITEM(LS-SORT-INDEX - 1)
+                           SET UPDATE-ITEM(LS-SORT-INDEX - 1)
+                               TO UPDATE-ITEM(LS-SORT-INDEX)
+                           SET UPDATE-ITEM(LS-SORT-INDEX)
+                               TO LS-TEMP-ITEM
+                       END-IF
+
+               END-PERFORM
+           END-PERFORM
+           GOBACK.
+       END PROGRAM SORT-ITEMS.
+
+      *> ===============================================================
+      *> COMPARE-TWO-ITEMS.
+      *>
+      *> Compare two distinct items
+      *>
+      *> Return -1 if the first item should appear before the second
+      *> item, 1 if the second item should appear first, or 0 if
+      *> there's no rules for these two items.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. COMPARE-TWO-ITEMS.
+
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+
+       LINkAGE SECTION.
+       01  IN-ITEM-1               PIC 9(2) USAGE COMP.
+       01  IN-ITEM-2               PIC 9(2) USAGE COMP.
+       COPY "rules" IN "05".
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE IN-ITEM-1
+           BY REFERENCE IN-ITEM-2
+           BY REFERENCE RULES-GRP.
+
+      *> Find the rule for item 1
+           SEARCH ALL RULES
+               WHEN RULE-KEY(RULE-INDEX) = IN-ITEM-1
+
+                   PERFORM VARYING RULE-AFTER-INDEX
+                       FROM 1 BY 1 UNTIL
+                       RULE-AFTER-INDEX > RULE-AFTER-SIZE(RULE-INDEX)
+
+                       IF RULE-AFTER-ITEM(RULE-INDEX,RULE-AFTER-INDEX)
+                           = IN-ITEM-2
+      *> Found item 2 in this list, return -1
+      *> (item 1 should be before item2)
+                           MOVE -1 TO RETURN-CODE
+                           GOBACK
+                   END-PERFORM
+           END-SEARCH
+
+      *> Find the rule for item 2
+           SEARCH ALL RULES
+               WHEN RULE-KEY(RULE-INDEX) = IN-ITEM-2
+                   PERFORM VARYING RULE-AFTER-INDEX
+                       FROM 1 BY 1 UNTIL
+                       RULE-AFTER-INDEX > RULE-AFTER-SIZE(RULE-INDEX)
+
+                       IF RULE-AFTER-ITEM(RULE-INDEX,RULE-AFTER-INDEX)
+                           = IN-ITEM-1
+      *> Found item 1 in this list, return 1
+      *> (item 2 should be before item 1)
+                           MOVE 1 TO RETURN-CODE
+                           GOBACK
+                   END-PERFORM
+           END-SEARCH
+           MOVE 0 TO RETURN-CODE
+           GOBACK.
+       END PROGRAM COMPARE-TWO-ITEMS.
+
+      *> ===============================================================
+      *> DISPLAY-RULE
+      *>
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DISPLAY-RULE.
+
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+
+       LINkAGE SECTION.
+       01  RULE-GRP-01.
+           05  FILLER.
+       COPY "rule" IN "05".
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE RULE-GRP-01.
+
+           DISPLAY RULE-KEY ": " WITH NO ADVANCING
+           PERFORM VARYING RULE-AFTER-INDEX FROM 1 BY 1
+               UNTIL RULE-AFTER-INDEX > RULE-AFTER-SIZE
+               DISPLAY " " RULE-AFTER-ITEM(RULE-AFTER-INDEX)
+                   WITH NO ADVANCING
+           END-PERFORM
+           DISPLAY " "
+
+           GOBACK.
+       END PROGRAM DISPLAY-RULE.
