@@ -12,70 +12,59 @@
        FD  FD-DATA EXTERNAL.
        01  F-DATA-RECORD                 PIC X(130).
 
-       WORKING-STORAGE SECTION.
-       01  C-DIR-UP                      CONSTANT 1.
-       01  C-DIR-RIGHT                   CONSTANT 2.
-       01  C-DIR-DOWN                    CONSTANT 3.
-       01  C-DIR-LEFT                    CONSTANT 4.
-
        LOCAL-STORAGE SECTION.
+       01  LS-COMMAND-LINE               PIC X(20).
        01  LS-FILE-PATH                  PIC X(20).
-      *> Grid state
-       01  LS-GUARD-DIR                  PIC 9(1) VALUE C-DIR-UP.
+       01  LS-PART                       PIC 9(1).
+       01  LS-TOTAL-X-COUNT              PIC 9(5) USAGE COMP.
        COPY "grid" IN "06".
-      *> For calculating the number of Xs the guard marked:
-       01  LS-ROW-X-COUNT                PIC 9(3) USAGE COMP VALUE 0.
-       01  LS-TOTAL-X-COUNT              PIC 9(5) USAGE COMP VALUE 0.
 
        PROCEDURE DIVISION.
-           ACCEPT LS-FILE-PATH FROM COMMAND-LINE
+
+      *> Read the grid
+           ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
+           UNSTRING LS-COMMAND-LINE
+               DELIMITED BY " "
+               INTO LS-FILE-PATH LS-PART
+
            CALL "PARSE-GRID" USING
                BY REFERENCE GRID-GRP
 
            display "read grid of size " GRID-SIZE
                " with guard at " GUARD-ROW "," GUARD-COL
-           PERFORM UNTIL EXIT
-      *> Mark each cell the guard occupies with an X.
-               SET GRID-CELL(GUARD-ROW, GUARD-COL) to "X"
-      *> Move, or set the next direction, of the guard, based on
-      *> the next cell in the guard's current direction.
-               EVALUATE LS-GUARD-DIR
-                   WHEN C-DIR-UP
-                       IF GRID-CELL(GUARD-ROW - 1, GUARD-COL) = "#"
-                       THEN
-                           SET LS-GUARD-DIR TO C-DIR-RIGHT
-                       ELSE
-                           ADD -1 TO GUARD-ROW
-                       END-IF
-                   WHEN C-DIR-RIGHT
-                       IF GRID-CELL(GUARD-ROW, GUARD-COL + 1) = "#"
-                       THEN
-                           SET LS-GUARD-DIR TO C-DIR-DOWN
-                       ELSE
-                           ADD 1 TO GUARD-COL
-                       END-IF
-                   WHEN C-DIR-DOWN
-                       IF GRID-CELL(GUARD-ROW + 1, GUARD-COL) = "#"
-                       THEN
-                           SET LS-GUARD-DIR TO C-DIR-LEFT
-                       ELSE
-                           ADD 1 TO GUARD-ROW
-                       END-IF
-                   WHEN C-DIR-LEFT
-                       IF GRID-CELL(GUARD-ROW, GUARD-COL - 1) = "#"
-                       THEN
-                           SET LS-GUARD-DIR TO C-DIR-UP
-                       ELSE
-                           ADD -1 TO GUARD-COL
-                       END-IF
-               END-EVALUATE
-               IF GUARD-ROW = 0 OR GUARD-ROW = GRID-SIZE + 1
-                   OR GUARD-COL = 0 OR GUARD-COL = GRID-SIZE + 1
-               THEN
-                   display "exited at " GUARD-ROW "," GUARD-COL
-                   EXIT PERFORM
-               END-IF
-           END-PERFORM
+
+      *> Call the program for the selected part for day 6.
+           IF LS-PART = 1
+           THEN
+               CALL "PART-1" USING
+                   BY REFERENCE GRID-GRP
+           ELSE
+               CALL "PART-2" USING
+                   BY REFERENCE GRID-GRP
+           END-IF
+
+           GOBACK.
+
+       END PROGRAM DAY06.
+
+      *> ===============================================================
+      *> PART-1.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PART-1.
+
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-ROW-X-COUNT                PIC 9(3) USAGE COMP VALUE 0.
+       01  LS-TOTAL-X-COUNT              PIC 9(5) USAGE COMP VALUE 0.
+
+       LINKAGE SECTION.
+           COPY "grid" IN "06".
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE GRID-GRP.
+           CALL "RUN-GRID" USING
+               BY REFERENCE GRID-GRP
 
       *> Calculate the number of X's we marked
            PERFORM VARYING GRID-ROW-INDEX
@@ -88,10 +77,182 @@
            END-PERFORM
 
            DISPLAY "Guard crossed " LS-TOTAL-X-COUNT " locations."
+           GOBACK.
+       END PROGRAM PART-1.
+
+      *> ===============================================================
+      *> PART-2.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PART-2.
+       DATA DIVISION.
+
+       LOCAL-STORAGE SECTION.
+       01  LS-OBSTACLE-ROW               PIC 9(3) USAGE COMP.
+       01  LS-OBSTACLE-COL               PIC 9(3) USAGE COMP.
+       01  LS-SUCCESS-OBSTACLE-COUNT     PIC 9(5) USAGE COMP VALUE 0.
+       01  LS-GUARD-START-ROW            PIC 9(3) USAGE COMP.
+       01  LS-GUARD-START-COL            PIC 9(3) USAGE COMP.
+       LINKAGE SECTION.
+           COPY "grid" IN "06".
+
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE GRID-GRP.
+
+           SET LS-GUARD-START-ROW TO GUARD-ROW
+           SET LS-GUARD-START-COL TO GUARD-COL
+
+           PERFORM VARYING LS-OBSTACLE-ROW FROM 1 BY 1
+               UNTIL LS-OBSTACLE-ROW > GRID-SIZE
+               AFTER LS-OBSTACLE-COL FROM 1 BY 1
+               UNTIL LS-OBSTACLE-COL > GRID-SIZE
+
+      *> Reset the grid data to the starting state.
+               SET GUARD-ROW TO LS-GUARD-START-ROW
+               SET GUARD-COL TO LS-GUARD-START-COL
+
+      *> If the location isn't occupied, place the obstacle
+      *> and test the grid.
+               IF GRID-CELL(LS-OBSTACLE-ROW, LS-OBSTACLE-COL) NOT = "#"
+                   AND GRID-CELL(LS-OBSTACLE-ROW, LS-OBSTACLE-COL)
+                       NOT = "^"
+               THEN
+                   MOVE "#" TO
+                       GRID-CELL(LS-OBSTACLE-ROW, LS-OBSTACLE-COL)
+
+                   CALL "RUN-GRID" USING
+                       BY REFERENCE GRID-GRP
+
+                   IF RETURN-CODE = 1
+                   THEN
+                       ADD 1 TO LS-SUCCESS-OBSTACLE-COUNT
+                       display "obstacle: "
+                           LS-OBSTACLE-ROW "," LS-OBSTACLE-COL
+                   END-IF
+
+      *> Remove the obstacle.
+                   MOVE "." TO
+                       GRID-CELL(LS-OBSTACLE-ROW, LS-OBSTACLE-COL)
+               END-IF
+           END-PERFORM
+           DISPLAY LS-SUCCESS-OBSTACLE-COUNT " successful obstacles"
+           GOBACK.
+       END PROGRAM PART-2.
+
+      *> ===============================================================
+      *> RUN-GRID.
+      *> Return 0 if the guard exited the grid, 1 if a loop was
+      *> detected.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. RUN-GRID.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  C-DIR-UP                      CONSTANT 1.
+       01  C-DIR-RIGHT                   CONSTANT 2.
+       01  C-DIR-DOWN                    CONSTANT 3.
+       01  C-DIR-LEFT                    CONSTANT 4.
+
+       LOCAL-STORAGE SECTION.
+       01  LS-GUARD-DIR                  PIC 9(1) VALUE C-DIR-UP.
+      *> For calculating the number of path nodes
+      *> for which we had a direction change:
+       01  LS-TURN-GRP.
+           05  LS-TURN-SIZE              PIC 9(5) USAGE COMP VALUE 0.
+           05  LS-TURN-NODES OCCURS 1 TO 16900 TIMES
+               DEPENDING ON LS-TURN-SIZE
+               ASCENDING KEY IS LS-TURN-NODE-ROW
+               ASCENDING KEY IS LS-TURN-NODE-COL
+               ASCENDING KEY IS LS-TURN-NODE-DIR
+               INDEXED BY LS-TURN-INDEX.
+               10  LS-TURN-NODE-ROW      PIC 9(3) USAGE COMP.
+               10  LS-TURN-NODE-COL      PIC 9(3) USAGE COMP.
+               10  LS-TURN-NODE-DIR      PIC 9(1) USAGE COMP.
+
+
+       LINKAGE SECTION.
+           COPY "grid" IN "06".
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE GRID-GRP.
+
+           MOVE 0 TO RETURN-CODE
+           SET LS-GUARD-DIR TO C-DIR-UP
+
+           PERFORM UNTIL EXIT
+      *> Mark each cell the guard occupies with an X.
+               SET GRID-CELL(GUARD-ROW, GUARD-COL) to "X"
+
+      *> Move, or set the next direction, of the guard, based on
+      *> the next cell in the guard's current direction.
+               EVALUATE LS-GUARD-DIR
+                   WHEN C-DIR-UP
+                       IF GUARD-ROW = 1
+                           EXIT PERFORM
+                       ELSE IF GRID-CELL(GUARD-ROW - 1, GUARD-COL) = "#"
+                           PERFORM CHECK-LOOP
+                           SET LS-GUARD-DIR TO C-DIR-RIGHT
+                       ELSE
+                           ADD -1 TO GUARD-ROW
+                       END-IF
+                   WHEN C-DIR-RIGHT
+                       IF GUARD-COL = GRID-SIZE
+                           EXIT PERFORM
+                       ELSE IF GRID-CELL(GUARD-ROW, GUARD-COL + 1) = "#"
+                           PERFORM CHECK-LOOP
+                           SET LS-GUARD-DIR TO C-DIR-DOWN
+                       ELSE
+                           ADD 1 TO GUARD-COL
+                       END-IF
+                   WHEN C-DIR-DOWN
+                       IF GUARD-ROW = GRID-SIZE
+                           EXIT PERFORM
+                       ELSE IF GRID-CELL(GUARD-ROW + 1, GUARD-COL) = "#"
+                           PERFORM CHECK-LOOP
+                           SET LS-GUARD-DIR TO C-DIR-LEFT
+                       ELSE
+                           ADD 1 TO GUARD-ROW
+                       END-IF
+                   WHEN C-DIR-LEFT
+                       IF GUARD-COL = 1
+                           EXIT PERFORM
+                       ELSE IF GRID-CELL(GUARD-ROW, GUARD-COL - 1) = "#"
+                           PERFORM CHECK-LOOP
+                           SET LS-GUARD-DIR TO C-DIR-UP
+                       ELSE
+                           ADD -1 TO GUARD-COL
+                       END-IF
+               END-EVALUATE
+           END-PERFORM
+
 
            GOBACK.
 
-       END PROGRAM DAY06.
+       CHECK-LOOP.
+           SEARCH ALL LS-TURN-NODES
+               AT END
+      *> First time hitting this turn, log it.
+                   ADD 1 TO LS-TURN-SIZE
+                   SET LS-TURN-NODE-ROW(LS-TURN-SIZE) TO GUARD-ROW
+                   SET LS-TURN-NODE-COL(LS-TURN-SIZE) TO GUARD-COL
+                   SET LS-TURN-NODE-DIR(LS-TURN-SIZE) TO LS-GUARD-DIR
+                   SORT LS-TURN-NODES
+                       ON ASCENDING KEY LS-TURN-NODE-ROW
+                       ON ASCENDING KEY LS-TURN-NODE-COL
+                       ON ASCENDING KEY LS-TURN-NODE-DIR
+
+      *> We already hit this turn, this means we're in a loop!
+               WHEN LS-TURN-NODE-ROW(LS-TURN-INDEX) = GUARD-ROW
+                   AND LS-TURN-NODE-COL(LS-TURN-INDEX) = GUARD-COL
+                   AND LS-TURN-NODE-DIR(LS-TURN-INDEX) = LS-GUARD-DIR
+                   MOVE 1 TO RETURN-CODE
+                   GOBACK
+           END-SEARCH
+           .
+
+       END PROGRAM RUN-GRID.
 
       *> ===============================================================
       *> PARSE-GRID.
@@ -120,6 +281,7 @@
            OPEN INPUT FD-DATA
 
            SET GRID-ROW-INDEX TO 1
+           SET GUARD-ROW TO 0
            PERFORM UNTIL EXIT
                READ FD-DATA INTO F-DATA-RECORD
                    AT END
