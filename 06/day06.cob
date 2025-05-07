@@ -156,20 +156,10 @@
 
        LOCAL-STORAGE SECTION.
        01  LS-GUARD-DIR                  PIC 9(1) VALUE C-DIR-UP.
+       01  LS-IS-LOOP                    PIC 9(1) VALUE 0.
       *> For calculating the number of path nodes
       *> for which we had a direction change:
-       01  LS-TURN-GRP.
-           05  LS-TURN-SIZE              PIC 9(5) USAGE COMP VALUE 0.
-           05  LS-TURN-NODES OCCURS 1 TO 16900 TIMES
-               DEPENDING ON LS-TURN-SIZE
-               ASCENDING KEY IS LS-TURN-NODE-ROW
-               ASCENDING KEY IS LS-TURN-NODE-COL
-               ASCENDING KEY IS LS-TURN-NODE-DIR
-               INDEXED BY LS-TURN-INDEX.
-               10  LS-TURN-NODE-ROW      PIC 9(3) USAGE COMP.
-               10  LS-TURN-NODE-COL      PIC 9(3) USAGE COMP.
-               10  LS-TURN-NODE-DIR      PIC 9(1) USAGE COMP.
-
+       COPY "turn" IN "06".
 
        LINKAGE SECTION.
            COPY "grid" IN "06".
@@ -230,23 +220,18 @@
            GOBACK.
 
        CHECK-LOOP.
-           SET LS-TURN-INDEX TO 0
-           SEARCH LS-TURN-NODES
-               VARYING LS-TURN-INDEX
-               AT END
-      *> First time hitting this turn, log it.
-                   ADD 1 TO LS-TURN-SIZE
-                   SET LS-TURN-NODE-ROW(LS-TURN-SIZE) TO GUARD-ROW
-                   SET LS-TURN-NODE-COL(LS-TURN-SIZE) TO GUARD-COL
-                   SET LS-TURN-NODE-DIR(LS-TURN-SIZE) TO LS-GUARD-DIR
+           CALL "CHECK-LOOP" USING
+               BY REFERENCE GUARD-ROW
+               BY REFERENCE GUARD-COL
+               BY REFERENCE LS-GUARD-DIR
+               BY REFERENCE TURN-GRP
+               RETURNING LS-IS-LOOP
 
       *> We already hit this turn, this means we're in a loop!
-               WHEN LS-TURN-NODE-ROW(LS-TURN-INDEX) = GUARD-ROW
-                   AND LS-TURN-NODE-COL(LS-TURN-INDEX) = GUARD-COL
-                   AND LS-TURN-NODE-DIR(LS-TURN-INDEX) = LS-GUARD-DIR
+               IF LS-IS-LOOP = 1
                    MOVE 1 TO RETURN-CODE
                    GOBACK
-           END-SEARCH
+               END-IF
            .
 
        END PROGRAM RUN-GRID.
@@ -316,3 +301,41 @@
            GOBACK.
 
        END PROGRAM PARSE-GRID.
+
+      *> ===============================================================
+      *> CHECK-LOOP.
+      *> Returns 1 if we detected a loop, 0 otherwise.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. CHECK-LOOP.
+       DATA DIVISION.
+       LINKAGE SECTION.
+       01  IN-TURN-NODE-ROW              PIC 9(3) USAGE COMP.
+       01  IN-TURN-NODE-COL              PIC 9(3) USAGE COMP.
+       01  IN-TURN-NODE-DIR              PIC 9(1) USAGE COMP.
+       COPY "turn" IN "06".
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE IN-TURN-NODE-ROW
+           BY REFERENCE IN-TURN-NODE-COL
+           BY REFERENCE IN-TURN-NODE-DIR
+           BY REFERENCE TURN-GRP.
+           SET TURN-INDEX TO 0
+           SEARCH TURN-NODES
+               VARYING TURN-INDEX
+               AT END
+      *> First time hitting this turn, log it.
+                   ADD 1 TO TURN-SIZE
+                   SET TURN-NODE-ROW(TURN-SIZE) TO IN-TURN-NODE-ROW
+                   SET TURN-NODE-COL(TURN-SIZE) TO IN-TURN-NODE-COL
+                   SET TURN-NODE-DIR(TURN-SIZE) TO IN-TURN-NODE-DIR
+                   MOVE 0 TO RETURN-CODE
+
+      *> We already hit this turn, this means we're in a loop!
+               WHEN TURN-NODE-ROW(TURN-INDEX) = IN-TURN-NODE-ROW
+                   AND TURN-NODE-COL(TURN-INDEX) = IN-TURN-NODE-COL
+                   AND TURN-NODE-DIR(TURN-INDEX) = IN-TURN-NODE-DIR
+                   MOVE 1 TO RETURN-CODE
+           END-SEARCH
+           GOBACK.
+       END PROGRAM CHECK-LOOP.
