@@ -126,9 +126,8 @@
 
                    IF RETURN-CODE = 1
                    THEN
+      *> This obstacle worked!
                        ADD 1 TO LS-SUCCESS-OBSTACLE-COUNT
-                       display "obstacle: "
-                           LS-OBSTACLE-ROW "," LS-OBSTACLE-COL
                    END-IF
 
       *> Remove the obstacle.
@@ -231,17 +230,15 @@
            GOBACK.
 
        CHECK-LOOP.
-           SEARCH ALL LS-TURN-NODES
+           SET LS-TURN-INDEX TO 0
+           SEARCH LS-TURN-NODES
+               VARYING LS-TURN-INDEX
                AT END
       *> First time hitting this turn, log it.
                    ADD 1 TO LS-TURN-SIZE
                    SET LS-TURN-NODE-ROW(LS-TURN-SIZE) TO GUARD-ROW
                    SET LS-TURN-NODE-COL(LS-TURN-SIZE) TO GUARD-COL
                    SET LS-TURN-NODE-DIR(LS-TURN-SIZE) TO LS-GUARD-DIR
-                   SORT LS-TURN-NODES
-                       ON ASCENDING KEY LS-TURN-NODE-ROW
-                       ON ASCENDING KEY LS-TURN-NODE-COL
-                       ON ASCENDING KEY LS-TURN-NODE-DIR
 
       *> We already hit this turn, this means we're in a loop!
                WHEN LS-TURN-NODE-ROW(LS-TURN-INDEX) = GUARD-ROW
