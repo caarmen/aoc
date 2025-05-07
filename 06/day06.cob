@@ -156,10 +156,11 @@
 
        LOCAL-STORAGE SECTION.
        01  LS-GUARD-DIR                  PIC 9(1) VALUE C-DIR-UP.
-       01  LS-IS-LOOP                    PIC 9(1) VALUE 0.
+       01  LS-ADDED-TO-SET               PIC 9(1) VALUE 0.
       *> For calculating the number of path nodes
       *> for which we had a direction change:
-       COPY "turn" IN "06".
+       01  LS-TURN-ITEM                  PIC 9(7) USAGE COMP.
+       COPY "set" IN "06".
 
        LINKAGE SECTION.
            COPY "grid" IN "06".
@@ -220,15 +221,15 @@
            GOBACK.
 
        CHECK-LOOP.
-           CALL "CHECK-LOOP" USING
-               BY REFERENCE GUARD-ROW
-               BY REFERENCE GUARD-COL
-               BY REFERENCE LS-GUARD-DIR
-               BY REFERENCE TURN-GRP
-               RETURNING LS-IS-LOOP
+           COMPUTE LS-TURN-ITEM =  10000 * GUARD-ROW
+                   + 10 * GUARD-COL + LS-GUARD-DIR
+           CALL "ADD-TO-SET" USING
+               BY REFERENCE LS-TURN-ITEM
+               BY REFERENCE SET-GRP
+               RETURNING LS-ADDED-TO-SET
 
       *> We already hit this turn, this means we're in a loop!
-               IF LS-IS-LOOP = 1
+               IF LS-ADDED-TO-SET = 0
                    MOVE 1 TO RETURN-CODE
                    GOBACK
                END-IF
@@ -303,39 +304,32 @@
        END PROGRAM PARSE-GRID.
 
       *> ===============================================================
-      *> CHECK-LOOP.
-      *> Returns 1 if we detected a loop, 0 otherwise.
+      *> ADD-TO-SET.
+      *> Returns 1 if we added the item to the set, 0 if the item
+      *> existed already, so we didn't add it.
       *> ===============================================================
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. CHECK-LOOP.
+       PROGRAM-ID. ADD-TO-SET.
        DATA DIVISION.
        LINKAGE SECTION.
-       01  IN-TURN-NODE-ROW              PIC 9(3) USAGE COMP.
-       01  IN-TURN-NODE-COL              PIC 9(3) USAGE COMP.
-       01  IN-TURN-NODE-DIR              PIC 9(1) USAGE COMP.
-       COPY "turn" IN "06".
+       01  IN-ITEM-VALUE                 PIC 9(7) USAGE COMP.
+       COPY "set" IN "06".
 
        PROCEDURE DIVISION USING
-           BY REFERENCE IN-TURN-NODE-ROW
-           BY REFERENCE IN-TURN-NODE-COL
-           BY REFERENCE IN-TURN-NODE-DIR
-           BY REFERENCE TURN-GRP.
-           SET TURN-INDEX TO 0
-           SEARCH TURN-NODES
-               VARYING TURN-INDEX
+           BY REFERENCE IN-ITEM-VALUE
+           BY REFERENCE SET-GRP.
+           SET SET-INDEX TO 0
+           SEARCH SET-NODES
+               VARYING SET-INDEX
                AT END
-      *> First time hitting this turn, log it.
-                   ADD 1 TO TURN-SIZE
-                   SET TURN-NODE-ROW(TURN-SIZE) TO IN-TURN-NODE-ROW
-                   SET TURN-NODE-COL(TURN-SIZE) TO IN-TURN-NODE-COL
-                   SET TURN-NODE-DIR(TURN-SIZE) TO IN-TURN-NODE-DIR
-                   MOVE 0 TO RETURN-CODE
-
-      *> We already hit this turn, this means we're in a loop!
-               WHEN TURN-NODE-ROW(TURN-INDEX) = IN-TURN-NODE-ROW
-                   AND TURN-NODE-COL(TURN-INDEX) = IN-TURN-NODE-COL
-                   AND TURN-NODE-DIR(TURN-INDEX) = IN-TURN-NODE-DIR
+      *> First time seeing this item, add it.
+                   ADD 1 TO SET-SIZE
+                   SET SET-NODE-ITEM(SET-SIZE) TO IN-ITEM-VALUE
                    MOVE 1 TO RETURN-CODE
+
+      *> We already have this item.
+               WHEN SET-NODE-ITEM(SET-INDEX) = IN-ITEM-VALUE
+                   MOVE 0 TO RETURN-CODE
            END-SEARCH
            GOBACK.
-       END PROGRAM CHECK-LOOP.
+       END PROGRAM ADD-TO-SET.
