@@ -89,6 +89,14 @@
                                    CALL "PUSH-TO-STACK" USING
                                        BY VALUE C-OPERATOR-MUL
                                        BY REFERENCE STACK-GRP
+                           WHEN STACK-ITEM-VISITED(STACK-SIZE) = 1
+                               AND STACK-ITEM-OPERATOR(STACK-SIZE)
+                                   = C-OPERATOR-MUL
+                                   CALL "POP-STACK" USING
+                                       BY REFERENCE STACK-GRP
+                                   CALL "PUSH-TO-STACK" USING
+                                       BY VALUE C-OPERATOR-CONCAT
+                                       BY REFERENCE STACK-GRP
                            WHEN OTHER
                                CALL "POP-STACK" USING
                                    BY REFERENCE STACK-GRP
@@ -99,23 +107,28 @@
                            BY REFERENCE STACK-GRP
                            RETURNING LS-CALC-RESULT
 
-                       IF LS-CALC-RESULt = 1
+                       IF LS-CALC-RESULT = 1
                            MOVE 1 TO RETURN-CODE
                            GOBACK
                        END-IF
 
-
-                       IF STACK-ITEM-OPERATOR(STACK-SIZE) =
-                           C-OPERATOR-ADD
+                       EVALUATE STACK-ITEM-OPERATOR(STACK-SIZE)
+                           WHEN C-OPERATOR-ADD
+                                   CALL "POP-STACK" USING
+                                       BY REFERENCE STACK-GRP
+                                   CALL "PUSH-TO-STACK" USING
+                                       BY VALUE C-OPERATOR-MUL
+                                       BY REFERENCE STACK-GRP
+                           WHEN C-OPERATOR-MUL
+                                   CALL "POP-STACK" USING
+                                       BY REFERENCE STACK-GRP
+                                   CALL "PUSH-TO-STACK" USING
+                                       BY VALUE C-OPERATOR-CONCAT
+                                       BY REFERENCE STACK-GRP
+                           WHEN OTHER
                                CALL "POP-STACK" USING
                                    BY REFERENCE STACK-GRP
-                               CALL "PUSH-TO-STACK" USING
-                                   BY VALUE C-OPERATOR-MUL
-                                   BY REFERENCE STACK-GRP
-                       ELSE
-                           CALL "POP-STACK" USING
-                               BY REFERENCE STACK-GRP
-                       END-IF
+                       END-EVALUATE
                END-EVALUATE
            END-PERFORM
 
@@ -179,6 +192,9 @@
 
        LOCAL-STORAGE SECTION.
        01  LS-RESULT                        PIC 9(18) COMP-3 VALUE 0.
+       01  LS-CONCAT-LEFT                   PIC Z(17)9.
+       01  LS-CONCAT-RIGHT                  PIC Z(17)9.
+       01  LS-CONCAT-RESULT-STR             PIC Z(36)9 VALUE SPACES.
 
        LINKAGE SECTION.
        COPY "stack" IN "07".
@@ -191,11 +207,19 @@
            SET LS-RESULT TO NUM(1)
            PERFORM VARYING NUMS-INDEX FROM 2 BY 1
                UNTIL NUMS-INDEX > NUMS-SIZE
-               IF STACK-ITEM-OPERATOR(NUMS-INDEX - 1) = C-OPERATOR-ADD
-                   ADD NUM(NUMS-INDEX) TO LS-RESULT
-               ELSE
-                   COMPUTE LS-RESULT = LS-RESULT * NUM(NUMS-INDEX)
-               END-IF
+               EVALUATE STACK-ITEM-OPERATOR(NUMS-INDEX - 1)
+                   WHEN C-OPERATOR-ADD
+                       ADD NUM(NUMS-INDEX) TO LS-RESULT
+                   WHEN C-OPERATOR-MUL
+                       COMPUTE LS-RESULT = LS-RESULT * NUM(NUMS-INDEX)
+                   WHEN OTHER
+                       MOVE LS-RESULT TO LS-CONCAT-LEFT
+                       MOVE NUM(NUMS-INDEX) TO LS-CONCAT-RIGHT
+                       STRING FUNCTION TRIM(LS-CONCAT-LEFT)
+                           FUNCTION TRIM(LS-CONCAT-RIGHT)
+                           INTO LS-CONCAT-RESULT-STR
+                       MOVE LS-CONCAT-RESULT-STR TO LS-RESULT
+               END-EVALUATE
                IF LS-RESULT > CALC-VALUE
                    GOBACK
                END-IF
@@ -287,6 +311,8 @@
                        DISPLAY "+" NO ADVANCING
                    WHEN C-OPERATOR-MUL
                        DISPLAY "*" NO ADVANCING
+                   WHEN C-OPERATOR-CONCAT
+                       DISPLAY "||" NO ADVANCING
                    WHEN OTHER
                        DISPLAY "." NO ADVANCING
                END-EVALUATE
