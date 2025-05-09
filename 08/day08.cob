@@ -7,11 +7,6 @@
        COPY "set" IN "08".
        01  LS-GRID-SIZE                          PIC 9(2) COMP.
        01  LS-ANTENNA-PAIR-INDEX                 PIC 9(2) COMP.
-       01  LS-ANTINODE-1-ROW                     PIC S9(2) COMP.
-       01  LS-ANTINODE-1-COL                     PIC S9(2) COMP.
-       01  LS-ANTINODE-2-ROW                     PIC S9(2) COMP.
-       01  LS-ANTINODE-2-COL                     PIC S9(2) COMP.
-       01  LS-ANTINODE-VALUE                     PIC 9(4) COMP.
 
        PROCEDURE DIVISION.
 
@@ -34,6 +29,7 @@
                        IF LS-ANTENNA-PAIR-INDEX NOT =
                            ANTENNA-COORDS-INDEX
                            CALL "CALCULATE-ANTINODES" USING
+                               BY REFERENCE LS-GRID-SIZE
                                BY REFERENCE ANTENNA-ROW(
                                    ANTENNAS-INDEX,
                                    ANTENNA-COORDS-INDEX
@@ -50,36 +46,7 @@
                                    ANTENNAS-INDEX,
                                    LS-ANTENNA-PAIR-INDEX
                                )
-                               BY REFERENCE LS-ANTINODE-1-ROW
-                               BY REFERENCE LS-ANTINODE-1-COL
-                               BY REFERENCE LS-ANTINODE-2-ROW
-                               BY REFERENCE LS-ANTINODE-2-COL
-                           IF LS-ANTINODE-1-ROW >= 1 AND
-                               LS-ANTINODE-1-ROW <= LS-GRID-SIZE AND
-                               LS-ANTINODE-1-COL >= 1 AND
-                               LS-ANTINODE-1-COL <= LS-GRID-SIZE
-                           THEN
-                               COMPUTE LS-ANTINODE-VALUE = 
-                                   (100 * LS-ANTINODE-1-ROW) +
-                                   LS-ANTINODE-1-COL
-
-                               CALL "ADD-TO-SET" USING
-                                   BY REFERENCE LS-ANTINODE-VALUE
-                                   BY REFERENCE SET-GRP
-                           END-IF
-                           IF LS-ANTINODE-2-ROW >= 1 AND
-                               LS-ANTINODE-2-ROW <= LS-GRID-SIZE AND
-                               LS-ANTINODE-2-COL >= 1 AND
-                               LS-ANTINODE-2-COL <= LS-GRID-SIZE
-                           THEN
-                               COMPUTE LS-ANTINODE-VALUE = 
-                                   (100 * LS-ANTINODE-2-ROW) +
-                                   LS-ANTINODE-2-COL
-
-                               CALL "ADD-TO-SET" USING
-                                   BY REFERENCE LS-ANTINODE-VALUE
-                                   BY REFERENCE SET-GRP
-                           END-IF
+                               BY REFERENCE SET-GRP
                        END-IF
                    END-PERFORM
                END-PERFORM
@@ -245,33 +212,65 @@
        LOCAL-STORAGE SECTION.
        01  LS-DELTA-COLS                 PIC S9(2) COMP.
        01  LS-DELTA-ROWS                 PIC S9(2) COMP.
+       01  LS-ANTINODE-ROW               PIC S9(2) COMP.
+       01  LS-ANTINODE-COL               PIC S9(2) COMP.
+       01  LS-ANTINODE-INDEX             PIC 9(2) COMP.
+       01  LS-ANTINODE-VALUE             PIC 9(4) COMP.
 
        LINKAGE SECTION.
+       01  IN-GRID-SIZE                  PIC 9(2) COMP.
        01  IN-ANTENNA-1-ROW              PIC 9(2) COMP.
        01  IN-ANTENNA-1-COL              PIC 9(2) COMP.
        01  IN-ANTENNA-2-ROW              PIC 9(2) COMP.
        01  IN-ANTENNA-2-COL              PIC 9(2) COMP.
-       01  OUT-ANTINODE-1-ROW            PIC S9(2) COMP.
-       01  OUT-ANTINODE-1-COL            PIC S9(2) COMP.
-       01  OUT-ANTINODE-2-ROW            PIC S9(2) COMP.
-       01  OUT-ANTINODE-2-COL            PIC S9(2) COMP.
+       COPY "set" IN "08".
 
        PROCEDURE DIVISION USING
+           BY REFERENCE IN-GRID-SIZE
            BY REFERENCE IN-ANTENNA-1-ROW
            BY REFERENCE IN-ANTENNA-1-COL
            BY REFERENCE IN-ANTENNA-2-ROW
            BY REFERENCE IN-ANTENNA-2-COL
-           BY REFERENCE OUT-ANTINODE-1-ROW
-           BY REFERENCE OUT-ANTINODE-1-COL
-           BY REFERENCE OUT-ANTINODE-2-ROW
-           BY REFERENCE OUT-ANTINODE-2-COL.
+           BY REFERENCE SET-GRP.
 
            COMPUTE LS-DELTA-ROWS = IN-ANTENNA-2-ROW - IN-ANTENNA-1-ROW
            COMPUTE LS-DELTA-COLS = IN-ANTENNA-2-COL - IN-ANTENNA-1-COL
-           COMPUTE OUT-ANTINODE-1-ROW = IN-ANTENNA-1-ROW - LS-DELTA-ROWS
-           COMPUTE OUT-ANTINODE-1-COL = IN-ANTENNA-1-COL - LS-DELTA-COLS
-           COMPUTE OUT-ANTINODE-2-ROW = IN-ANTENNA-2-ROW + LS-DELTA-ROWS
-           COMPUTE OUT-ANTINODE-2-COL = IN-ANTENNA-2-COL + LS-DELTA-COLS
+           COMPUTE LS-ANTINODE-ROW = IN-ANTENNA-1-ROW
+           COMPUTE LS-ANTINODE-COL = IN-ANTENNA-1-COL
+           PERFORM VARYING LS-ANTINODE-INDEX
+               FROM 1 BY 1
+               UNTIL LS-ANTINODE-ROW < 1
+               OR LS-ANTINODE-ROW > IN-GRID-SIZE
+               OR LS-ANTINODE-COL < 1
+               OR LS-ANTINODE-COL > IN-GRID-SIZE
+
+               COMPUTE LS-ANTINODE-VALUE = (100 * LS-ANTINODE-ROW)
+                   + LS-ANTINODE-COL
+
+               CALL "ADD-TO-SET" USING
+                   BY REFERENCE LS-ANTINODE-VALUE
+                   BY REFERENCE SET-GRP
+               COMPUTE LS-ANTINODE-ROW = LS-ANTINODE-ROW - LS-DELTA-ROWS
+               COMPUTE LS-ANTINODE-COL = LS-ANTINODE-COL - LS-DELTA-COLS
+           END-PERFORM
+           COMPUTE LS-ANTINODE-ROW = IN-ANTENNA-2-ROW
+           COMPUTE LS-ANTINODE-COL = IN-ANTENNA-2-COL
+           PERFORM VARYING LS-ANTINODE-INDEX
+               FROM 1 BY 1
+               UNTIL LS-ANTINODE-ROW < 1
+               OR LS-ANTINODE-ROW > IN-GRID-SIZE
+               OR LS-ANTINODE-COL < 1
+               OR LS-ANTINODE-COL > IN-GRID-SIZE
+
+               COMPUTE LS-ANTINODE-VALUE = (100 * LS-ANTINODE-ROW)
+                   + LS-ANTINODE-COL
+
+               CALL "ADD-TO-SET" USING
+                   BY REFERENCE LS-ANTINODE-VALUE
+                   BY REFERENCE SET-GRP
+               COMPUTE LS-ANTINODE-ROW = LS-ANTINODE-ROW + LS-DELTA-ROWS
+               COMPUTE LS-ANTINODE-COL = LS-ANTINODE-COL + LS-DELTA-COLS
+           END-PERFORM
 
            GOBACK.
 
