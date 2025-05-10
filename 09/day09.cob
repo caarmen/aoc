@@ -168,14 +168,154 @@
 
        LOCAL-STORAGE SECTION.
        01  LS-FIRST-FREE-BLOCK-INDEX             PIC 9(6) COMP VALUE 0.
+       01  LS-FILE-BLOCK-PTR                     PIC 9(6) COMP.
+       01  LS-FILE-START-PTR                     PIC 9(6) COMP.
+       01  LS-FILE-END-PTR                       PIC 9(6) COMP.
+       01  LS-FILE-LENGTH                        PIC 9(6) COMP.
 
        LINKAGE SECTION.
        COPY "disk-map" IN "09".
        PROCEDURE DIVISION USING
            BY REFERENCE DISK-MAP-GRP.
 
+           SET LS-FILE-START-PTR TO DISK-MAP-SIZE
+           SET LS-FILE-END-PTR TO DISK-MAP-SIZE
+           COMPUTE LS-FILE-BLOCK-PTR = DISK-MAP-SIZE - 1
+           PERFORM UNTIL EXIT
+      *> Go to the beginning of the rightmost file
+               PERFORM UNTIL LS-FILE-START-PTR < 1
+                   IF DISK-ENTRY(LS-FILE-START-PTR) NOT =
+                       DISK-ENTRY(LS-FILE-START-PTR - 1)
+                   THEN
+                       EXIT PERFORM
+                   ELSE
+                       ADD -1 TO LS-FILE-START-PTR
+                   END-IF
+               END-PERFORM
+               IF DISK-ENTRY(LS-FILE-START-PTR) NOT = C-FREE
+               THEN
+                   COMPUTE LS-FILE-LENGTH = LS-FILE-END-PTR -
+                       LS-FILE-START-PTR + 1
+
+                   CALL "FIND-FIRST-FREE-SPAN" USING
+                       BY REFERENCE DISK-MAP-GRP
+                       BY REFERENCE LS-FILE-LENGTH
+                       BY REFERENCE LS-FILE-START-PTR
+                       BY REFERENCE LS-FIRST-FREE-BLOCK-INDEX
+                   IF LS-FIRST-FREE-BLOCK-INDEX > 0
+                       AND LS-FIRST-FREE-BLOCK-INDEX < LS-FILE-START-PTR
+                   THEN
+                       CALL "MOVE-FILE" USING
+                           BY REFERENCE DISK-MAP-GRP
+                           BY REFERENCE LS-FILE-START-PTR
+                           BY REFERENCE LS-FIRST-FREE-BLOCK-INDEX
+                           BY REFERENCE LS-FILE-LENGTH
+                   END-IF
+      *> Compute the file length
+               END-IF
+               ADD -1 TO LS-FILE-START-PTR
+               SET LS-FILE-END-PTR TO LS-FILE-START-PTR
+      *> We reached the beginning of the disk map, exit.
+               IF LS-FILE-START-PTR < 1
+               THEN
+                   EXIT PERFORM
+               END-IF
+           END-PERFORM
+
            GOBACK.
        END PROGRAM DEFRAGMENT-DISK-2.
+
+      *> ===============================================================
+      *> FIND-FIRST-FREE-SPAN
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. FIND-FIRST-FREE-SPAN.
+
+       DATA DIVISION.
+
+       WORKING-STORAGE SECTION.
+       COPY "constants" IN "09".
+
+       LOCAL-STORAGE SECTION.
+       01  LS-FILE-BLOCK-PTR                     PIC 9(6) COMP.
+
+       LINKAGE SECTION.
+       COPY "disk-map" IN "09".
+       01  IN-SPAN-LENGTH                        PIC 9(6) COMP.
+       01  IN-MAX-PTR                            PIC 9(6) COMP.
+       01  OUT-FIRST-FREE-INDEX                  PIC 9(6) COMP VALUE 0.
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE DISK-MAP-GRP
+           BY REFERENCE IN-SPAN-LENGTH
+           BY REFERENCE IN-MAX-PTR
+           BY REFERENCE OUT-FIRST-FREE-INDEX.
+
+           SET OUT-FIRST-FREE-INDEX TO 0
+           PERFORM VARYING OUT-FIRST-FREE-INDEX FROM 1 BY 1
+               UNTIL OUT-FIRST-FREE-INDEX > IN-MAX-PTR
+               IF DISK-ENTRY(OUT-FIRST-FREE-INDEX) = C-FREE
+               THEN
+                   SET LS-FILE-BLOCK-PTR TO OUT-FIRST-FREE-INDEX
+                   PERFORM VARYING LS-FILE-BLOCK-PTR FROM
+                       OUT-FIRST-FREE-INDEX BY 1 UNTIL
+                       LS-FILE-BLOCK-PTR - OUT-FIRST-FREE-INDEX + 1 =
+                       IN-SPAN-LENGTH
+
+                       IF DISK-ENTRY(LS-FILE-BLOCK-PTR) NOT = C-FREE
+                           EXIT PERFORM
+                       END-IF
+                   END-PERFORM
+                   IF  DISK-ENTRY(LS-FILE-BLOCK-PTR) = C-FREE AND
+                       LS-FILE-BLOCK-PTR - OUT-FIRST-FREE-INDEX + 1 =
+                       IN-SPAN-LENGTH
+                   THEN
+                       GOBACK
+                   END-IF
+
+               END-IF
+           END-PERFORM
+           SET OUT-FIRST-FREE-INDEX TO 0
+
+
+           GOBACK.
+       END PROGRAM FIND-FIRST-FREE-SPAN.
+
+      *> ===============================================================
+      *> MOVE-FILE.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. MOVE-FILE.
+       DATA DIVISION.
+
+       WORKING-STORAGE SECTION.
+       COPY "constants" IN "09".
+
+       LOCAL-STORAGE SECTION.
+       01  LS-FILE-BLOCK-PTR                     PIC 9(6) COMP.
+
+       LINKAGE SECTION.
+       COPY "disk-map" IN "09".
+       01  IN-SOURCE-INDEX                       PIC 9(6) COMP.
+       01  IN-DEST-INDEX                         PIC 9(6) COMP.
+       01  IN-FILE-LENGTH                        PIC 9(6) COMP.
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE DISK-MAP-GRP
+           BY REFERENCE IN-SOURCE-INDEX
+           BY REFERENCE IN-DEST-INDEX
+           BY REFERENCE IN-FILE-LENGTH.
+
+           PERFORM VARYING LS-FILE-BLOCK-PTR FROM 0 BY 1
+               UNTIL LS-FILE-BLOCK-PTR = IN-FILE-LENGTH
+               SET DISK-ENTRY(IN-DEST-INDEX + LS-FILE-BLOCK-PTR) TO
+                   DISK-ENTRY(IN-SOURCE-INDEX + LS-FILE-BLOCK-PTR)
+               SET DISK-ENTRY(IN-SOURCE-INDEX + LS-FILE-BLOCK-PTR) TO
+                   C-FREE
+           END-PERFORM
+
+           GOBACK.
+       END PROGRAM MOVE-FILE.
 
       *> ===============================================================
       *> CALCULATE-CHECKSUM.
