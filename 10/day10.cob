@@ -188,6 +188,10 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. PROCESS-TRAIL.
 
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+       REPOSITORY.
+           FUNCTION POP-STACK.
        DATA DIVISION.
        WORKING-STORAGE SECTION.
        COPY "constants" IN "10".
@@ -200,6 +204,7 @@
        01  LS-NEIGHBOR-ROW                     PIC 9(2).
        01  LS-NEIGHBOR-COL                     PIC 9(2).
        01  LS-NEIGHBOR-HEIGHT                  PIC 9(1).
+       01  LS-POP-RESULT                       PIC 9(1).
        COPY "stack" IN "10".
 
        LINKAGE SECTION.
@@ -232,14 +237,13 @@
                BY REFERENCE STACK-GRP
 
            PERFORM FOREVER
-               CALL "POP-STACK" USING
-                   BY REFERENCE STACK-GRP
-                   BY REFERENCE LS-CUR-ROW
-                   BY REFERENCE LS-CUR-COL
+               COMPUTE LS-POP-RESULT = POP-STACK(
+                   STACK-GRP LS-CUR-ROW LS-CUR-COL
+               )
 
                SET LS-CUR-HEIGHT TO GRID-CELL(LS-CUR-ROW, LS-CUR-COL)
 
-               IF RETURN-CODE NOT = 0
+               IF LS-POP-RESULT NOT = 0
                THEN
                    EXIT PERFORM
                END-IF
@@ -332,31 +336,31 @@
       *> Return 0 if an item was popped, 1 if the stack was empty.
       *> ===============================================================
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. POP-STACK.
+       FUNCTION-ID. POP-STACK.
 
        DATA DIVISION.
        LINKAGE SECTION.
        COPY "stack" IN "10".
        01  OUT-ITEM-ROW                    PIC 9(2).
        01  OUT-ITEM-COL                    PIC 9(2).
+       01  OUT-RESULT                      PIC 9(1).
 
        PROCEDURE DIVISION USING
-           BY REFERENCE STACK-GRP
-           BY REFERENCE OUT-ITEM-ROW
-           BY REFERENCE OUT-ITEM-COL
+           BY REFERENCE STACK-GRP OUT-ITEM-ROW OUT-ITEM-COL
+           RETURNING OUT-RESULT
            .
 
            IF STACK-SIZE > 0
                MOVE STACK-ITEM-ROW(STACK-SIZE) TO OUT-ITEM-ROW
                MOVE STACK-ITEM-COL(STACK-SIZE) TO OUT-ITEM-COL
                COMPUTE STACK-SIZE = STACK-SIZE - 1
-               GOBACK RETURNING 0
+               MOVE 0 TO OUT-RESULT
            ELSE
-               GOBACK RETURNING 1
+               MOVE 1 TO OUT-RESULT
            END-IF
-           .
+           GOBACK.
 
-       END PROGRAM POP-STACK.
+       END FUNCTION POP-STACK.
 
       *> ===============================================================
       *> PUSH-TO-STACK.
