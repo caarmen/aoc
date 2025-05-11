@@ -218,11 +218,12 @@
       *> Mark all the cells as not visited
            PERFORM VARYING GRID-ROW-INDEX FROM 1 BY 1
                UNTIL GRID-ROW-INDEX > GRID-SIZE
-               AFTER GRID-COL-INDEX FROM 1 BY 1
-               UNTIL GRID-COL-INDEX > GRID-SIZE
-               SET GRID-CELL-VISITED(GRID-ROW-INDEX, GRID-COL-INDEX) TO
-                   0
-           END-PERFORm
+               PERFORM VARYING GRID-COL-INDEX FROM 1 BY 1
+                   UNTIL GRID-COL-INDEX > GRID-SIZE
+                   SET GRID-CELL-VISITED(GRID-ROW-INDEX, GRID-COL-INDEX)
+                   TO 0
+               END-PERFORM
+           END-PERFORM
 
 
            CALL "PUSH-TO-STACK" USING
