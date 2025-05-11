@@ -191,6 +191,7 @@
        ENVIRONMENT DIVISION.
        CONFIGURATION SECTION.
        REPOSITORY.
+           FUNCTION PUSH-TO-STACK
            FUNCTION POP-STACK.
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -205,6 +206,7 @@
        01  LS-NEIGHBOR-COL                     PIC 9(2).
        01  LS-NEIGHBOR-HEIGHT                  PIC 9(1).
        01  LS-POP-RESULT                       PIC 9(1).
+       01  LS-PUSH-RESULT                      PIC 9(1).
        COPY "stack" IN "10".
 
        LINKAGE SECTION.
@@ -230,11 +232,11 @@
                END-PERFORM
            END-PERFORM
 
-
-           CALL "PUSH-TO-STACK" USING
-               BY REFERENCE IN-TRAIL-HEAD-ROW
-               BY REFERENCE IN-TRAIL-HEAD-COL
-               BY REFERENCE STACK-GRP
+           COMPUTE LS-PUSH-RESULT = PUSH-TO-STACK(
+               IN-TRAIL-HEAD-ROW
+               IN-TRAIL-HEAD-COL
+               STACK-GRP
+           )
 
            PERFORM FOREVER
                COMPUTE LS-POP-RESULT = POP-STACK(
@@ -268,10 +270,11 @@
                        )
                        IF LS-NEIGHBOR-HEIGHT = LS-CUR-HEIGHT + 1
                        THEN
-                           CALL "PUSH-TO-STACK" USING
-                               BY REFERENCE LS-NEIGHBOR-ROW
-                               BY REFERENCE LS-NEIGHBOR-COL
-                               BY REFERENCE STACK-GRP
+                           COMPUTE LS-PUSH-RESULT = PUSH-TO-STACK(
+                               LS-NEIGHBOR-ROW
+                               LS-NEIGHBOR-COL
+                               STACK-GRP
+                           )
                        END-IF
                    END-IF
       *> Check cell to the right
@@ -284,10 +287,11 @@
                        )
                        IF LS-NEIGHBOR-HEIGHT = LS-CUR-HEIGHT + 1
                        THEN
-                           CALL "PUSH-TO-STACK" USING
-                               BY REFERENCE LS-NEIGHBOR-ROW
-                               BY REFERENCE LS-NEIGHBOR-COL
-                               BY REFERENCE STACK-GRP
+                           COMPUTE LS-PUSH-RESULT = PUSH-TO-STACK(
+                               LS-NEIGHBOR-ROW
+                               LS-NEIGHBOR-COL
+                               STACK-GRP
+                           )
                        END-IF
                    END-IF
       *> Check cell to the bottom
@@ -300,10 +304,11 @@
                        )
                        IF LS-NEIGHBOR-HEIGHT = LS-CUR-HEIGHT + 1
                        THEN
-                           CALL "PUSH-TO-STACK" USING
-                               BY REFERENCE LS-NEIGHBOR-ROW
-                               BY REFERENCE LS-NEIGHBOR-COL
-                               BY REFERENCE STACK-GRP
+                           COMPUTE LS-PUSH-RESULT = PUSH-TO-STACK(
+                               LS-NEIGHBOR-ROW
+                               LS-NEIGHBOR-COL
+                               STACK-GRP
+                           )
                        END-IF
                    END-IF
       *> Check cell to the left
@@ -316,10 +321,11 @@
                        )
                        IF LS-NEIGHBOR-HEIGHT = LS-CUR-HEIGHT + 1
                        THEN
-                           CALL "PUSH-TO-STACK" USING
-                               BY REFERENCE LS-NEIGHBOR-ROW
-                               BY REFERENCE LS-NEIGHBOR-COL
-                               BY REFERENCE STACK-GRP
+                           COMPUTE LS-PUSH-RESULT = PUSH-TO-STACK(
+                               LS-NEIGHBOR-ROW
+                               LS-NEIGHBOR-COL
+                               STACK-GRP
+                           )
                        END-IF
                    END-IF
                END-IF
@@ -367,24 +373,25 @@
       *> Add an item to the end of the stack
       *> ===============================================================
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. PUSH-TO-STACK.
+       FUNCTION-ID. PUSH-TO-STACK.
 
        DATA DIVISION.
        LINKAGE SECTION.
        01  IN-ITEM-ROW                     PIC 9(2).
        01  IN-ITEM-COL                     PIC 9(2).
        COPY "stack" IN "10".
+       01  OUT-RESULT                      PIC 9(1).
 
        PROCEDURE DIVISION USING
-           BY REFERENCE IN-ITEM-ROW
-           BY REFERENCE IN-ITEM-COL
-           BY REFERENCE STACK-GRP.
+           BY REFERENCE IN-ITEM-ROW IN-ITEM-COL STACK-GRP
+           RETURNING OUT-RESULT.
 
            ADD 1 TO STACK-SIZE
            SET STACK-ITEM-ROW(STACK-SIZE) TO IN-ITEM-ROW
            SET STACK-ITEM-COL(STACK-SIZE) TO IN-ITEM-COL
 
+           MOVE 0 TO OUT-RESULT
            GOBACK.
-       END PROGRAM PUSH-TO-STACK.
+       END FUNCTION PUSH-TO-STACK.
 
 
