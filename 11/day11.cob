@@ -6,6 +6,7 @@
        01  LS-FILE-PATH                PIC X(30).
        01  LS-BLINK                    PIC 9(2).
        01  LS-ITERATION                PIC 9(2).
+       01  LS-STONE-COUNT              PIC 9(18).
        COPY "stones" IN "11".
 
        PROCEDURE DIVISION.
@@ -17,10 +18,15 @@
                STONE-GRP
 
            PERFORM VARYING LS-ITERATION FROM 1 BY 1
-               UNTIL LS-ITERATION > 25
+               UNTIL LS-ITERATION > 75
                CALL "TRANSFORM-LINE" USING
                    STONE-GRP
-               DISPLAY LS-ITERATION ": " STONES-SIZE " stones."
+               SET LS-STONE-COUNT TO 0
+               PERFORM VARYING STONE-INDEX FROM 1 BY 1 UNTIL
+                   STONE-INDEX > STONES-SIZE
+                   ADD STONE-COUNT(STONE-INDEX) TO LS-STONE-COUNT
+               END-PERFORM
+               DISPLAY LS-ITERATION ": " LS-STONE-COUNT " stones."
            END-PERFORM
 
            .
@@ -36,7 +42,10 @@
        LOCAL-STORAGE SECTION.
        01  LS-NEW-STONE-1               PIC 9(18).
        01  LS-NEW-STONE-2               PIC S9(18) VALUE -1.
-       01  LS-STONE-INDEX               PIC 9(8).
+       01  LS-STONE-INDEX               PIC 9(18).
+       01  LS-INSERT-RESULT             PIC 9(1).
+       01  LS-SIZE-START                PIC 9(18).
+       01  LS-STONE-COUNT               PIC 9(18).
 
        LINKAGE SECTION.
        COPY "stones" IN "11".
@@ -44,22 +53,35 @@
        PROCEDURE DIVISION
            USING STONE-GRP.
 
+           SET LS-SIZE-START TO STONES-SIZE
            PERFORM VARYING LS-STONE-INDEX FROM 1 BY 1
-               UNTIL LS-STONE-INDEX > STONES-SIZE
+               UNTIL LS-STONE-INDEX > LS-SIZE-START
                CALL "TRANSFORM-STONE" USING
                    BY REFERENCE STONE(LS-STONE-INDEX)
                    LS-NEW-STONE-1
                    LS-NEW-STONE-2
 
-                   SET STONE(LS-STONE-INDEX) TO LS-NEW-STONE-1
+                   SET LS-STONE-COUNT TO STONE-COUNT(LS-STONE-INDEX)
+                   SET STONE-COUNT(LS-STONE-INDEX) TO 0
+                   CALL "INSERT-STONE" USING
+                       BY REFERENCE STONE-GRP
+                       LS-NEW-STONE-1
+                       LS-STONE-COUNT
                    IF LS-NEW-STONE-2 >= 0
                    THEN
-                       ADD 1 TO LS-STONE-INDEX
                        CALL "INSERT-STONE" USING
                            BY REFERENCE STONE-GRP
                            LS-NEW-STONE-2
-                           LS-STONE-INDEX
+                           LS-STONE-COUNT
+                       SET LS-NEW-STONE-2 TO -1
                    END-IF
+           END-PERFORM
+
+           PERFORM VARYING LS-STONE-INDEX FROM 1 BY 1
+               UNTIL LS-STONE-INDEX > STONES-SIZE
+               ADD STONE-NEW-COUNT(LS-STONE-INDEX) TO
+                   STONE-COUNT(LS-STONE-INDEX)
+               SET STONE-NEW-COUNT(LS-STONE-INDEX) TO 0
            END-PERFORM
            GOBACK.
        END PROGRAM TRANSFORM-LINE.
@@ -110,30 +132,48 @@
 
       *> ===============================================================
       *> INSERT-STONE.
+      *> Return 1 if a new stone was inserted, 0 otherwise
       *> ===============================================================
        IDENTIFICATION DIVISION.
        PROGRAM-ID. INSERT-STONE.
        DATA DIVISION.
        LOCAL-STORAGE SECTION.
-       01  LS-STONE-INDEX                  PIC 9(8).
+       01  LS-STONE-INDEX                  PIC 9(18).
        LINKAGE SECTION.
        COPY "stones" IN "11".
        01  IN-STONE                        PIC 9(18).
-       01  IN-STONE-INDEX                  PIC 9(8).
+       01  IN-STONE-COUNT                  PIC 9(18).
 
        PROCEDURE DIVISION USING
            BY REFERENCE STONE-GRP
            IN-STONE
-           IN-STONE-INDEX.
+           IN-STONE-COUNT.
+
+      *> See if this stone exists, if so increase its count
+           SET STONE-INDEX TO 0
+           SEARCH STONES
+               WHEN STONE(STONE-INDEX) = IN-STONE
+                   ADD IN-STONE-COUNT TO STONE-NEW-COUNT(STONE-INDEX)
+                   GOBACK RETURNING 0
+           END-SEARCH
+
+      *> Look for a slot with a count of 0 and replace it with this
+      *> stone.
+           SET STONE-INDEX TO 0
+           SEARCH STONES
+               WHEN STONE-COUNT(STONE-INDEX) = 0
+                   AND STONE-NEW-COUNT(STONE-INDEX) = 0
+                   SET STONE(STONE-INDEX) TO IN-STONE
+                   SET STONE-NEW-COUNT(STONE-INDEX) TO IN-STONE-COUNT
+                   GOBACK RETURNING 0
+           END-SEARCH
+
+      *> Add a new stone.
            ADD 1 TO STONES-SIZE.
-           PERFORM VARYING LS-STONE-INDEX FROM STONES-SIZE BY -1
-               UNTIL LS-STONE-INDEX = IN-STONE-INDEX
-               SET STONE(LS-STONE-INDEX) TO STONE(LS-STONE-INDEX - 1)
-           END-PERFORM
-
-           SET STONE(IN-STONE-INDEX) TO IN-STONE
-
-           GOBACK.
+           SET STONE(STONES-SIZE) TO IN-STONE
+           SET STONE-COUNT(STONES-SIZE) TO 0
+           SET STONE-NEW-COUNT(STONES-SIZE) TO IN-STONE-COUNT
+           GOBACK RETURNING 1.
        END PROGRAM INSERT-STONE.
 
       *> ===============================================================
@@ -150,7 +190,8 @@
            DISPLAY "---"
            PERFORM VARYING STONE-INDEX FROM 1 BY 1
                UNTIL STONE-INDEX > STONES-SIZE
-               DISPLAY STONE(STONE-INDEX)
+               DISPLAY STONE(STONE-INDEX) " (" STONE-COUNT(STONE-INDEX)
+                   ") "
            END-PERFORM
            DISPLAY "---"
 
@@ -201,6 +242,8 @@
                END-UNSTRING
                ADD 1 TO STONES-SIZE
                SET STONE(STONES-SIZE) TO LS-STONE
+               SET STONE-COUNT(STONES-SIZE) TO 1
+               SET STONE-NEW-COUNT(STONES-SIZE) TO 0
            END-PERFORM
            .
 
