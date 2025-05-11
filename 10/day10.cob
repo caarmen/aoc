@@ -77,7 +77,7 @@
 
            OPEN INPUT FD-DATA
            SET GRID-ROW-INDEX TO 0
-           PERFORM UNTIL EXIT
+           PERFORM FOREVER
                READ FD-DATA INTO F-FILE-RECORD
                    AT END
                        EXIT PERFORM
@@ -179,9 +179,7 @@
                ADD LS-TRAIL-SCORE TO LS-TOTAL-SCORE
            END-PERFORM
 
-           MOVE LS-TOTAL-SCORE TO RETURN-CODE
-
-           GOBACK.
+           GOBACK RETURNING LS-TOTAL-SCORE.
        END PROGRAM PROCESS-GRID.
 
       *> ===============================================================
@@ -232,7 +230,7 @@
                BY REFERENCE IN-TRAIL-HEAD-COL
                BY REFERENCE STACK-GRP
 
-           PERFORM UNTIL EXIT
+           PERFORM FOREVER
                CALL "POP-STACK" USING
                    BY REFERENCE STACK-GRP
                    BY REFERENCE LS-CUR-ROW
@@ -324,9 +322,7 @@
 
            END-PERFORM
 
-           MOVE LS-SCORE TO RETURN-CODE
-
-           GOBACK.
+           GOBACK RETURNING LS-SCORE.
        END PROGRAM PROCESS-TRAIL.
 
       *> ===============================================================
@@ -353,12 +349,12 @@
                MOVE STACK-ITEM-ROW(STACK-SIZE) TO OUT-ITEM-ROW
                MOVE STACK-ITEM-COL(STACK-SIZE) TO OUT-ITEM-COL
                COMPUTE STACK-SIZE = STACK-SIZE - 1
-               MOVE 0 TO RETURN-CODE
+               GOBACK RETURNING 0
            ELSE
-               MOVE 1 TO RETURN-CODE
+               GOBACK RETURNING 1
            END-IF
+           .
 
-           GOBACK.
        END PROGRAM POP-STACK.
 
       *> ===============================================================
