@@ -1,10 +1,29 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DAYXX.
 
+       DATA DIVISION.
+
+       LOCAL-STORAGE SECTION.
+       01  LS-FILE-PATH              PIC X(30).
+
+       PROCEDURE DIVISION.
+
+           ACCEPT LS-FILE-PATH FROM COMMAND-LINE
+
+           CALL "PARSE-FILE" USING
+               BY REFERENCE LS-FILE-PATH.
+       END PROGRAM DAYXX.
+
+      *> ===============================================================
+      *> PARSE-FILE.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PARSE-FILE.
+
        ENVIRONMENT DIVISION.
        INPUT-OUTPUT SECTION.
        FILE-CONTROL.
-           SELECT FD-DATA ASSIGN TO LS-FILE-PATH
+           SELECT FD-DATA ASSIGN TO IN-FILE-PATH
                ORGANIZATION IS LINE SEQUENTIAL.
 
        DATA DIVISION.
@@ -13,12 +32,13 @@
        01  F-FILE-RECORD             PIC X(47).
 
        LOCAL-STORAGE SECTION.
-       01  LS-FILE-PATH              PIC X(30).
        01  LS-LINE                   PIC X(47).
 
-       PROCEDURE DIVISION.
+       LINKAGE SECTION.
+       01  IN-FILE-PATH              PIC X(30).
 
-           ACCEPT LS-FILE-PATH FROM COMMAND-LINE
+       PROCEDURE DIVISION USING
+           BY REFERENCE IN-FILE-PATH.
 
            OPEN INPUT FD-DATA
            PERFORM UNTIL EXIT
@@ -32,4 +52,4 @@
            CLOSE FD-DATA
 
            .
-       END PROGRAM DAYXX.
+       END PROGRAM PARSE-FILE.
