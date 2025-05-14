@@ -6,3 +6,5 @@
                DEPENDING ON STACK-SIZE.
                10  STACK-ITEM-ROW        PIC 9(3).
                10  STACK-ITEM-COL        PIC 9(3).
+               10  STACK-PREV-ITEM-ROW   PIC 9(3) VALUE 0.
+               10  STACK-PREV-ITEM-COL   PIC 9(3) VALUE 0.

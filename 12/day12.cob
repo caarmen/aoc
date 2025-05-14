@@ -151,6 +151,8 @@
        COPY "stack" IN "12".
        01  LS-ROW                  PIC 9(3) VALUE 0.
        01  LS-COL                  PIC 9(3) VALUE 0.
+       01  LS-PREV-ROW             PIC 9(3) VALUE 0.
+       01  LS-PREV-COL             PIC 9(3) VALUE 0.
        01  LS-NEXT-ROW             PIC 9(3).
        01  LS-NEXT-COL             PIC 9(3).
        01  LS-REGION               PIC X(1) VALUE ".".
@@ -158,6 +160,8 @@
        01  LS-PUSH-RESULT          PIC 9(1).
        01  LS-AREA                 PIC 9(8) COMP VALUE 0.
        01  LS-PERIMETER            PIC 9(8) COMP VALUE 0.
+       01  LS-SIDES                PIC 9(8) COMP VALUE 0.
+       01  LS-SIDE-ALREADY-COUNTED PIC 9(1).
 
        LINKAGE SECTION.
        COPY "plot" IN "12".
@@ -169,6 +173,7 @@
 
            SET OUT-PRICE TO 0
            SET LS-PERIMETER TO 0
+           SET LS-SIDES TO 0
            SET LS-AREA TO 0
 
 
@@ -177,13 +182,19 @@
                SET LS-POP-RESULT TO POP-STACK(
                    STACK-GRP
                    LS-ROW
-                   LS-COL)
+                   LS-COL
+                   LS-PREV-ROW
+                   LS-PREV-COL
+                   )
       *> Nothing in the stack, see if there are any unvisited cells
                IF LS-POP-RESULT = 1
                    COMPUTE OUT-PRICE = OUT-PRICE +
-                       LS-AREA * LS-PERIMETER
+                       LS-AREA * LS-SIDES
                    SET LS-AREA TO 0
                    SET LS-PERIMETER TO 0
+                   SET LS-SIDES TO 0
+                   SET LS-PREV-ROW TO 0
+                   SET LS-PREV-COL TO 0
                    PERFORM VARYING LS-ROW FROM 1 BY 1
                        UNTIL LS-ROW > PLOT-SIZE
                        OR STACK-SIZE > 0
@@ -197,6 +208,8 @@
                                SET LS-PUSH-RESULT TO PUSH-TO-STACK(
                                    LS-ROW
                                    LS-COL
+                                   LS-PREV-ROW
+                                   LS-PREV-COL
                                    STACK-GRP)
                            END-IF
                        END-PERFORM
@@ -211,7 +224,226 @@
                    IF VISITED(LS-ROW, LS-COL) = 0
                        SET VISITED(LS-ROW, LS-COL) TO 1
                        ADD 1 TO LS-AREA
+      *> ====================
+      *> Add to the sides
+      *> ====================
+      *>   To the top:
+                       IF LS-ROW = 1 OR
+                           PLOT-CELL(LS-ROW - 1, LS-COL) NOT = LS-REGION
+
+                           SET LS-SIDE-ALREADY-COUNTED TO 0
+      *>     We didn't count this top side on the left already
+                           COMPUTE LS-PREV-COL = LS-COL - 1
+                           PERFORM VARYING LS-PREV-COL FROM LS-PREV-COL
+                               BY -1 UNTIL LS-PREV-COL < 1
+                               IF PLOT-CELL(LS-ROW, LS-PREV-COL)
+                                   NOT = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF LS-ROW > 1 AND
+                                   PLOT-CELL(LS-ROW - 1, LS-PREV-COL)
+                                   = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF VISITED(LS-ROW, LS-PREV-COL) = 1
+                                   AND (LS-ROW = 1
+                                       OR PLOT-CELL(
+                                           LS-ROW - 1, LS-PREV-COL)
+                                           NOT = LS-REGION)
+                                   SET LS-SIDE-ALREADY-COUNTED TO 1
+                                   EXIT PERFORM
+                               END-IF
+                           END-PERFORM
+      *>     We didn't count this top side on the right already
+                           COMPUTE LS-PREV-COL = LS-COL + 1
+                           PERFORM VARYING LS-PREV-COL FROM LS-PREV-COL
+                               BY 1 UNTIL LS-PREV-COL > PLOT-SIZE
+                               IF PLOT-CELL(LS-ROW, LS-PREV-COL)
+                                   NOT = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF LS-ROW > 1 AND
+                                   PLOT-CELL(LS-ROW - 1, LS-PREV-COL)
+                                   = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF VISITED(LS-ROW, LS-PREV-COL) = 1
+                                   AND (LS-ROW = 1
+                                       OR PLOT-CELL(
+                                           LS-ROW - 1, LS-PREV-COL)
+                                           NOT = LS-REGION)
+                                   SET LS-SIDE-ALREADY-COUNTED TO 1
+                                   EXIT PERFORM
+                               END-IF
+                           END-PERFORM
+
+                           IF LS-SIDE-ALREADY-COUNTED = 0
+                               ADD 1 TO LS-SIDES
+                           END-IF
+                       END-IF
+      *>   To the right:
+                       IF LS-COL = PLOT-SIZE OR
+                           PLOT-CELL(LS-ROW, LS-COL + 1) NOT = LS-REGION
+
+      *>     We didn't count this right side on the top already
+                           SET LS-SIDE-ALREADY-COUNTED TO 0
+                           COMPUTE LS-PREV-ROW = LS-ROW - 1
+                           PERFORM VARYING LS-PREV-ROW FROM LS-PREV-ROW
+                               BY -1 UNTIL LS-PREV-ROW < 1
+                               IF PLOT-CELL(LS-PREV-ROW, LS-COL)
+                                   NOT = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF LS-COL < PLOT-SIZE AND
+                                   PLOT-CELL(LS-PREV-ROW, LS-COL + 1)
+                                   = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF VISITED(LS-PREV-ROW, LS-COL) = 1
+                                   AND (LS-COL = PLOT-SIZE
+                                       OR PLOT-CELL(
+                                           LS-PREV-ROW, LS-COL + 1)
+                                           NOT = LS-REGION)
+                                   SET LS-SIDE-ALREADY-COUNTED TO 1
+                                   EXIT PERFORM
+                               END-IF
+                           END-PERFORM
+      *>     We didn't count this right side on the bottom already
+                           COMPUTE LS-PREV-ROW = LS-ROW + 1
+                           PERFORM VARYING LS-PREV-ROW FROM LS-PREV-ROW
+                               BY 1 UNTIL LS-PREV-ROW > PLOT-SIZE
+                               IF PLOT-CELL(LS-PREV-ROW, LS-COL)
+                                   NOT = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF LS-COL < PLOT-SIZE AND
+                                   PLOT-CELL(LS-PREV-ROW, LS-COL + 1)
+                                   = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF VISITED(LS-PREV-ROW, LS-COL) = 1
+                                   AND (LS-COL = PLOT-SIZE
+                                       OR PLOT-CELL(
+                                           LS-PREV-ROW, LS-COL + 1)
+                                           NOT = LS-REGION)
+                                   SET LS-SIDE-ALREADY-COUNTED TO 1
+                                   EXIT PERFORM
+                               END-IF
+                           END-PERFORM
+                           IF LS-SIDE-ALREADY-COUNTED = 0
+                               ADD 1 TO LS-SIDES
+                           END-IF
+                       END-IF
+      *>   To the bottom:
+                       IF LS-ROW = PLOT-SIZE OR
+                           PLOT-CELL(LS-ROW + 1, LS-COL) NOT = LS-REGION
+
+      *>     We didn't count this bottom side on the left already
+                           SET LS-SIDE-ALREADY-COUNTED TO 0
+                           COMPUTE LS-PREV-COL = LS-COL - 1
+                           PERFORM VARYING LS-PREV-COL FROM LS-PREV-COL
+                               BY -1 UNTIL LS-PREV-COL < 1
+                               IF PLOT-CELL(LS-ROW, LS-PREV-COL)
+                                   NOT = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF LS-ROW < PLOT-SIZE AND
+                                   PLOT-CELL(LS-ROW + 1, LS-PREV-COL)
+                                   = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF VISITED(LS-ROW, LS-PREV-COL) = 1
+                                   AND (LS-ROW = PLOT-SIZE
+                                       OR PLOT-CELL(
+                                           LS-ROW + 1, LS-PREV-COL)
+                                           NOT = LS-REGION)
+                                   SET LS-SIDE-ALREADY-COUNTED TO 1
+                                   EXIT PERFORM
+                               END-IF
+                           END-PERFORM
+      *>     We didn't count this bottom side on the right already
+                           COMPUTE LS-PREV-COL = LS-COL + 1
+                           PERFORM VARYING LS-PREV-COL FROM LS-PREV-COL
+                               BY 1 UNTIL LS-PREV-COL > PLOT-SIZE
+                               IF PLOT-CELL(LS-ROW, LS-PREV-COL)
+                                   NOT = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF LS-ROW < PLOT-SIZE AND
+                                   PLOT-CELL(LS-ROW + 1, LS-PREV-COL)
+                                   = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF VISITED(LS-ROW, LS-PREV-COL) = 1
+                                   AND (LS-ROW = PLOT-SIZE
+                                       OR PLOT-CELL(
+                                           LS-ROW + 1, LS-PREV-COL)
+                                           NOT = LS-REGION)
+                                   SET LS-SIDE-ALREADY-COUNTED TO 1
+                                   EXIT PERFORM
+                               END-IF
+                           END-PERFORM
+                           IF LS-SIDE-ALREADY-COUNTED = 0
+                               ADD 1 TO LS-SIDES
+                           END-IF
+                       END-IF
+      *>   To the left:
+                       IF LS-COL = 1 OR
+                           PLOT-CELL(LS-ROW, LS-COL - 1) NOT = LS-REGION
+
+      *>     We didn't count this left side on the top already
+                           SET LS-SIDE-ALREADY-COUNTED TO 0
+                           COMPUTE LS-PREV-ROW = LS-ROW - 1
+                           PERFORM VARYING LS-PREV-ROW FROM LS-PREV-ROW
+                               BY -1 UNTIL LS-PREV-ROW < 1
+                               IF PLOT-CELL(LS-PREV-ROW, LS-COL)
+                                   NOT = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF LS-COL > 1 AND
+                                   PLOT-CELL(LS-PREV-ROW, LS-COL - 1)
+                                   = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF VISITED(LS-PREV-ROW, LS-COL) = 1
+                                   AND (LS-COL = 1
+                                       OR PLOT-CELL(
+                                           LS-PREV-ROW, LS-COL - 1)
+                                           NOT = LS-REGION)
+                                   SET LS-SIDE-ALREADY-COUNTED TO 1
+                                   EXIT PERFORM
+                               END-IF
+                           END-PERFORM
+      *>     We didn't count this left side on the bottom already
+                           COMPUTE LS-PREV-ROW = LS-ROW + 1
+                           PERFORM VARYING LS-PREV-ROW FROM LS-PREV-ROW
+                               BY 1 UNTIL LS-PREV-ROW > PLOT-SIZE
+                               IF PLOT-CELL(LS-PREV-ROW, LS-COL)
+                                   NOT = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF LS-COL > 1 AND
+                                   PLOT-CELL(LS-PREV-ROW, LS-COL - 1)
+                                   = LS-REGION
+                                   EXIT PERFORM
+                               END-IF
+                               IF VISITED(LS-PREV-ROW, LS-COL) = 1
+                                   AND (LS-COL = 1
+                                       OR PLOT-CELL(
+                                           LS-PREV-ROW, LS-COL - 1)
+                                           NOT = LS-REGION)
+                                   SET LS-SIDE-ALREADY-COUNTED TO 1
+                                   EXIT PERFORM
+                               END-IF
+                           END-PERFORM
+                           IF LS-SIDE-ALREADY-COUNTED = 0
+                               ADD 1 TO LS-SIDES
+                           END-IF
+                       END-IF
+
+      *> ====================
       *> Add to the perimeter
+      *> ====================
       *>   To the top:
                        IF LS-ROW = 1 OR
                            PLOT-CELL(LS-ROW - 1,
@@ -248,6 +480,8 @@
                            SET LS-PUSH-RESULT TO PUSH-TO-STACK(
                                LS-NEXT-ROW
                                LS-NEXT-COL
+                               LS-ROW
+                               LS-COL
                                STACK-GRP)
                        END-IF
       *>   To the right:
@@ -260,6 +494,8 @@
                            SET LS-PUSH-RESULT TO PUSH-TO-STACK(
                                LS-NEXT-ROW
                                LS-NEXT-COL
+                               LS-ROW
+                               LS-COL
                                STACK-GRP)
                        END-IF
       *>   To the bottom:
@@ -272,6 +508,8 @@
                            SET LS-PUSH-RESULT TO PUSH-TO-STACK(
                                LS-NEXT-ROW
                                LS-NEXT-COL
+                               LS-ROW
+                               LS-COL
                                STACK-GRP)
                        END-IF
       *>   To the left:
@@ -284,6 +522,8 @@
                            SET LS-PUSH-RESULT TO PUSH-TO-STACK(
                                LS-NEXT-ROW
                                LS-NEXT-COL
+                               LS-ROW
+                               LS-COL
                                STACK-GRP)
                        END-IF
       *> We've finished this region, start a new one.
@@ -309,16 +549,22 @@
        COPY "stack" IN "12".
        01  OUT-ITEM-ROW                    PIC 9(3).
        01  OUT-ITEM-COL                    PIC 9(3).
+       01  OUT-PREV-ITEM-ROW               PIC 9(3).
+       01  OUT-PREV-ITEM-COL               PIC 9(3).
        01  OUT-RESULT                      PIC 9(1).
 
        PROCEDURE DIVISION USING
            BY REFERENCE STACK-GRP OUT-ITEM-ROW OUT-ITEM-COL
+           OUT-PREV-ITEM-ROW
+           OUT-PREV-ITEM-COL
            RETURNING OUT-RESULT
            .
 
            IF STACK-SIZE > 0
                MOVE STACK-ITEM-ROW(STACK-SIZE) TO OUT-ITEM-ROW
                MOVE STACK-ITEM-COL(STACK-SIZE) TO OUT-ITEM-COL
+               MOVE STACK-PREV-ITEM-ROW(STACK-SIZE) TO OUT-PREV-ITEM-ROW
+               MOVE STACK-PREV-ITEM-COL(STACK-SIZE) TO OUT-PREV-ITEM-COL
                COMPUTE STACK-SIZE = STACK-SIZE - 1
                MOVE 0 TO OUT-RESULT
            ELSE
@@ -339,16 +585,23 @@
        LINKAGE SECTION.
        01  IN-ITEM-ROW                     PIC 9(3).
        01  IN-ITEM-COL                     PIC 9(3).
+       01  IN-PREV-ITEM-ROW                PIC 9(3).
+       01  IN-PREV-ITEM-COL                PIC 9(3).
        COPY "stack" IN "12".
        01  OUT-RESULT                      PIC 9(1).
 
        PROCEDURE DIVISION USING
-           BY REFERENCE IN-ITEM-ROW IN-ITEM-COL STACK-GRP
+           BY REFERENCE IN-ITEM-ROW IN-ITEM-COL
+           IN-PREV-ITEM-ROW
+           IN-PREV-ITEM-COL
+           STACK-GRP
            RETURNING OUT-RESULT.
 
            ADD 1 TO STACK-SIZE
            SET STACK-ITEM-ROW(STACK-SIZE) TO IN-ITEM-ROW
            SET STACK-ITEM-COL(STACK-SIZE) TO IN-ITEM-COL
+           SET STACK-PREV-ITEM-ROW(STACK-SIZE) TO IN-PREV-ITEM-ROW
+           SET STACK-PREV-ITEM-COL(STACK-SIZE) TO IN-PREV-ITEM-COL
 
            MOVE 0 TO OUT-RESULT
            GOBACK.
