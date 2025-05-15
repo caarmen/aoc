@@ -4,14 +4,27 @@
        DATA DIVISION.
 
        LOCAL-STORAGE SECTION.
+       01  LS-COMMAND-LINE           PIC X(30).
        01  LS-FILE-PATH              PIC X(30).
+       01  LS-PART                   PIC 9(1).
+       01  LS-PRIZE-ADDITION         PIC 9(14) VALUE 0.
+
 
        PROCEDURE DIVISION.
 
-           ACCEPT LS-FILE-PATH FROM COMMAND-LINE
+           ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
+           UNSTRING LS-COMMAND-LINE
+               DELIMITED BY " "
+               INTO LS-PART LS-FILE-PATH
+           END-UNSTRING
+
+           IF LS-PART = 2
+               SET LS-PRIZE-ADDITION TO 10000000000000
+           END-IF
 
            CALL "PROCESS-FILE" USING
-               BY REFERENCE LS-FILE-PATH.
+               BY REFERENCE LS-FILE-PATH
+               LS-PRIZE-ADDITION.
 
        END PROGRAM DAY13.
 
@@ -47,9 +60,11 @@
 
        LINKAGE SECTION.
        01  IN-FILE-PATH              PIC X(30).
+       01  IN-PRIZE-ADDITION         PIC 9(14).
 
        PROCEDURE DIVISION USING
-           BY REFERENCE IN-FILE-PATH.
+           BY REFERENCE IN-FILE-PATH
+           IN-PRIZE-ADDITION.
 
            OPEN INPUT FD-DATA
            PERFORM UNTIL EXIT
@@ -76,6 +91,9 @@
                                    BY REFERENCE LS-LINE
                                    LS-C1
                                    LS-C2
+
+                               ADD IN-PRIZE-ADDITION TO LS-C1
+                               ADD IN-PRIZE-ADDITION TO LS-C2
 
                                CALL "SOLVE" USING
                                    BY REFERENCE
