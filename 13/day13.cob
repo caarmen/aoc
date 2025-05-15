@@ -36,13 +36,13 @@
        01  LS-LINE                   PIC X(47).
        01  LS-A1                     PIC 9(3).
        01  LS-B1                     PIC 9(3).
-       01  LS-C1                     PIC 9(7).
+       01  LS-C1                     PIC 9(16).
        01  LS-A2                     PIC 9(3).
        01  LS-B2                     PIC 9(3).
-       01  LS-C2                     PIC 9(7).
-       01  LS-A                      PIC 9(7).
-       01  LS-B                      PIC 9(7).
-       01  LS-TOKEN-COUNT            PIC 9(8) VALUE 0.
+       01  LS-C2                     PIC 9(16).
+       01  LS-A                      PIC 9(16).
+       01  LS-B                      PIC 9(16).
+       01  LS-TOKEN-COUNT            PIC 9(16) VALUE 0.
        01  LS-SOLUTION-EXISTS        PIC 9(1).
 
        LINKAGE SECTION.
@@ -149,8 +149,8 @@
 
        LINKAGE SECTION.
        01  IN-LINE                   PIC X(30).
-       01  OUT-X                     PIC 9(7).
-       01  OUT-Y                     PIC 9(7).
+       01  OUT-X                     PIC 9(16).
+       01  OUT-Y                     PIC 9(16).
 
        PROCEDURE DIVISION USING
            BY REFERENCE IN-LINE
@@ -185,24 +185,24 @@
 
        DATA DIVISION.
        LOCAL-STORAGE SECTION.
-       01  LS-A1                     PIC 9(7).
-       01  LS-B1                     PIC 9(7).
-       01  LS-C1                     PIC 9(7).
-       01  LS-A2                     PIC 9(7).
-       01  LS-B2                     PIC 9(7).
-       01  LS-C2                     PIC 9(7).
-       01  LS-A                      PIC 9(3)V9(3).
-       01  LS-B                      PIC 9(3)V9(3).
+       01  LS-A1                     PIC 9(16).
+       01  LS-B1                     PIC 9(16).
+       01  LS-C1                     PIC 9(16).
+       01  LS-A2                     PIC 9(16).
+       01  LS-B2                     PIC 9(16).
+       01  LS-C2                     PIC 9(16).
+       01  LS-A                      PIC 9(16)V9(3).
+       01  LS-B                      PIC 9(16)V9(3).
 
        LINKAGE SECTION.
        01  IN-A1                     PIC 9(3).
        01  IN-B1                     PIC 9(3).
-       01  IN-C1                     PIC 9(7).
+       01  IN-C1                     PIC 9(16).
        01  IN-A2                     PIC 9(3).
        01  IN-B2                     PIC 9(3).
-       01  IN-C2                     PIC 9(7).
-       01  OUT-A                     PIC 9(7).
-       01  OUT-B                     PIC 9(7).
+       01  IN-C2                     PIC 9(16).
+       01  OUT-A                     PIC 9(16).
+       01  OUT-B                     PIC 9(16).
 
        PROCEDURE DIVISION USING BY REFERENCE
            IN-A1
