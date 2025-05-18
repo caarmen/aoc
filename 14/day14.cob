@@ -4,11 +4,15 @@
        DATA DIVISION.
 
        LOCAL-STORAGE SECTION.
-       01  LS-COMMAND-LINE           PIC X(30).
+       01  LS-COMMAND-LINE           PIC X(50).
        01  LS-FILE-PATH              PIC X(30).
        01  LS-ROW-COUNT              PIC 9(3).
        01  LS-COL-COUNT              PIC 9(3).
-       01  LS-DURATION-S             PIC 9(3).
+       01  LS-START-DURATION-S       PIC 9(16).
+       01  LS-END-DURATION-S         PIC 9(16).
+       01  LS-DURATION-S             PIC 9(16).
+       01  LS-DURATION-SKIP-S        PIC 9(16).
+       01  LS-DELAY-S                PIC 9999V99.
 
        PROCEDURE DIVISION.
 
@@ -20,15 +24,25 @@
                    LS-FILE-PATH
                    LS-ROW-COUNT
                    LS-COL-COUNT
-                   LS-DURATION-S
+                   LS-START-DURATION-S
+                   LS-END-DURATION-S
+                   LS-DURATION-SKIP-S
+                   LS-DELAY-S
            END-UNSTRING
 
-           CALL "PARSE-FILE" USING
-               BY REFERENCE
-               LS-FILE-PATH
-               LS-ROW-COUNT
-               LS-COL-COUNT
-               LS-DURATION-S
+           PERFORM VARYING LS-DURATION-S FROM LS-START-DURATION-S
+               BY LS-DURATION-SKIP-S
+               UNTIL LS-DURATION-S > LS-END-DURATION-S
+               CONTINUE AFTER LS-DELAY-S SECONDS
+               DISPLAY SPACE AT LINE 1 COLUMN 1 ERASE SCREEN
+               DISPLAY LS-DURATION-S
+               CALL "PARSE-FILE" USING
+                   BY REFERENCE
+                   LS-FILE-PATH
+                   LS-ROW-COUNT
+                   LS-COL-COUNT
+                   LS-DURATION-S
+           END-PERFORM
                .
        END PROGRAM DAY14.
 
@@ -64,12 +78,15 @@
        01  LS-MID-ROW                PIC 9(3).
        01  LS-MID-COL                PIC 9(3).
        01  LS-SAFETY-FACTOR          PIC 9(11).
+       01  LS-DISPLAY-ROW            PIC 9(3).
+       01  LS-DISPLAY-COL            PIC 9(3).
+       01  LS-SAFETY-FACTOR-STR      PIC X(50).
 
        LINKAGE SECTION.
        01  IN-FILE-PATH              PIC X(30).
        01  IN-ROW-COUNT              PIC 9(3).
        01  IN-COL-COUNT              PIC 9(3).
-       01  IN-DURATION-S             PIC 9(3).
+       01  IN-DURATION-S             PIC 9(16).
 
        PROCEDURE DIVISION USING BY REFERENCE
            IN-FILE-PATH
@@ -105,6 +122,12 @@
                            LS-END-ROW
                            LS-END-COL
 
+                       COMPUTE LS-DISPLAY-ROW = LS-END-ROW + 10
+                       COMPUTE LS-DISPLAY-COL = LS-END-COL + 1
+
+                       DISPLAY "X"
+                           AT LINE LS-DISPLAY-ROW COLUMN LS-DISPLAY-COL
+
                        EVALUATE LS-END-ROW ALSO LS-END-COL
                            WHEN LESS THAN LS-MID-ROW
                                ALSO LESS THAN LS-MID-COL
@@ -128,9 +151,14 @@
                LS-QUAD-3-COUNT *
                LS-QUAD-4-COUNT
 
-               DISPLAY "Safety factor: " ls-quad-1-count " * "
-                   ls-quad-2-count " * " ls-quad-3-count " * "
-                   ls-quad-4-count " = " LS-SAFETY-FACTOR
+           DISPLAY SPACE AT LINE 2 COL 1
+           STRING "Safety factor: " ls-quad-1-count " * "
+               ls-quad-2-count " * " ls-quad-3-count " * "
+               ls-quad-4-count " = " LS-SAFETY-FACTOR
+               INTO LS-SAFETY-FACTOR-STR
+           END-STRING
+
+           DISPLAY LS-SAFETY-FACTOR-STR AT LINE 2 COL 1
            .
        END PROGRAM PARSE-FILE.
 
@@ -182,8 +210,8 @@
        PROGRAM-ID. CALCULATE-LOCATION.
        DATA DIVISION.
        LOCAL-STORAGE SECTION.
-       01  LS-END-ROW-NOWRAP          PIC S9(5).
-       01  LS-END-COL-NOWRAP          PIC S9(5).
+       01  LS-END-ROW-NOWRAP          PIC S9(16).
+       01  LS-END-COL-NOWRAP          PIC S9(16).
        LINKAGE SECTION.
        01  IN-ROW-COUNT               PIC 9(3).
        01  IN-COL-COUNT               PIC 9(3).
@@ -191,7 +219,7 @@
        01  IN-START-COL               PIC 9(3).
        01  IN-VELOCITY-ROW-PER-S      PIC S9(3).
        01  IN-VELOCITY-COL-PER-S      PIC S9(3).
-       01  IN-DURATION-S              PIC 9(3).
+       01  IN-DURATION-S              PIC 9(16).
        01  OUT-END-ROW                PIC 9(3).
        01  OUT-END-COL                PIC 9(3).
 
