@@ -5,6 +5,10 @@
 
        LOCAL-STORAGE SECTION.
        01  LS-FILE-PATH              PIC X(30).
+       01  LS-ITERATION              PIC 9(6) VALUE 1.
+       01  LS-INIT-REG-A             PIC 9(16) COMP.
+       01  LS-INIT-REG-B             PIC 9(16) COMP.
+       01  LS-INIT-REG-C             PIC 9(16) COMP.
        COPY "prog" IN "17".
        COPY "output" IN "17".
 
@@ -16,18 +20,45 @@
                BY REFERENCE LS-FILE-PATH
                PROG-GRP
 
-           CALL "RUN-PROGRAM" USING
-               BY REFERENCE
-               PROG-GRP
-               OUTPUT-GRP
+           SET LS-INIT-REG-A TO 0
+           SET LS-INIT-REG-B TO PROG-REG-B
+           SET LS-INIT-REG-C TO PROG-REG-C
+           SET LS-ITERATION TO 1
+           PERFORM UNTIL EXIT
 
-           DISPLAY "Register A: " PROG-REG-A
-           DISPLAY "Register B: " PROG-REG-B
-           DISPLAY "Register C: " PROG-REG-C
-           DISPLAY OUTPUT-SIZE " output items"
-           PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
-               UNTIL OUTPUT-INDEX > OUTPUT-SIZE
-               DISPLAY OUTPUT-ITEM(OUTPUT-INDEX) "," NO ADVANCING
+               SET LS-INIT-REG-A TO LS-ITERATION
+               SET PROG-REG-A TO LS-INIT-REG-A
+               SET PROG-REG-B TO LS-INIT-REG-B
+               SET PROG-REG-C TO LS-INIT-REG-C
+               SET OUTPUT-SIZE TO 0
+
+               CALL "RUN-PROGRAM" USING
+                   BY REFERENCE
+                   PROG-GRP
+                   OUTPUT-GRP
+
+               DISPLAY "Trying " LS-INIT-REG-A ": " NO ADVANCING
+               PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+                   UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+                   DISPLAY OUTPUT-ITEM(OUTPUT-INDEX) ","
+                       NO ADVANCING
+               END-PERFORM
+               DISPLAY SPACE
+               IF RETURN-CODE = 0
+                   DISPLAY "Self-generating program with " LS-INIT-REG-A
+                   DISPLAY "Register A: " PROG-REG-A
+                   DISPLAY "Register B: " PROG-REG-B
+                   DISPLAY "Register C: " PROG-REG-C
+                   DISPLAY OUTPUT-SIZE " output items"
+                   PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+                       UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+                       DISPLAY OUTPUT-ITEM(OUTPUT-INDEX) ","
+                           NO ADVANCING
+                   END-PERFORM
+                   DISPLAY SPACE
+                   EXIT PERFORM
+               END-IF
+               ADD 1 TO LS-ITERATION
            END-PERFORM
            DISPLAY SPACE
            .
@@ -118,6 +149,7 @@
 
       *> ===============================================================
       *> RUN-PROGRAM.
+      *> Return 0 if the output is identical to the input.
       *> ===============================================================
        IDENTIFICATION DIVISION.
        PROGRAM-ID. RUN-PROGRAM.
@@ -201,11 +233,23 @@
                IF NOT (LS-OPCODE = C-JNZ AND PROG-REG-A NOT = 0)
                    ADD 2 TO PROG-INSTR-PTR
                END-IF
-               IF FUNCTION MOD(OUTPUT-SIZE, 10) = 0
-                   display OUTPUT-SIZE
-               END-IF
                 
            END-PERFORM
+
+      *> Check if the output is identical to the input.
+           IF OUTPUT-SIZE NOT = PROG-SIZE
+               SET RETURN-CODE TO 1
+               GOBACK
+           END-IF
+           PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+               UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+               IF OUTPUT-ITEM(OUTPUT-INDEX) NOT =
+                   PROG-ITEM(OUTPUT-INDEX)
+                   SET RETURN-CODE TO 1
+                   GOBACK
+               END-IF
+           END-PERFORM
+           SET RETURN-CODE TO 0
            GOBACK.
        END PROGRAM RUN-PROGRAM.
 
