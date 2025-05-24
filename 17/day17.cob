@@ -4,7 +4,14 @@
        DATA DIVISION.
 
        LOCAL-STORAGE SECTION.
-       01  LS-FILE-PATH              PIC X(30).
+       01  LS-FILE-PATH                   PIC X(30).
+       01  LS-INIT-REG-A                  PIC 9(18) COMP.
+       01  LS-INIT-REG-B                  PIC 9(16) COMP.
+       01  LS-INIT-REG-C                  PIC 9(16) COMP.
+       01  LS-ITERATION                   PIC 9(5) VALUE 0.
+       01  LS-PROGRAM-RESULT              PIC 9(1).
+       01  LS-FACTORS OCCURS 16 TIMES.
+           05  LS-FACTOR                  PIC 9(1).
        COPY "prog" IN "17".
        COPY "output" IN "17".
 
@@ -16,20 +23,114 @@
                BY REFERENCE LS-FILE-PATH
                PROG-GRP
 
-           CALL "RUN-PROGRAM" USING
-               BY REFERENCE
-               PROG-GRP
-               OUTPUT-GRP
+      *> 0
+           SET LS-FACTOR(1) TO 0
+      *> 3
+           SET LS-FACTOR(2) TO 0
+      *> 5
+           SET LS-FACTOR(3) TO 0
+      *> 5
+           SET LS-FACTOR(4) TO 0
+      *> 5
+           SET LS-FACTOR(5) TO 0
+      *> 4
+           SET LS-FACTOR(6) TO 0
+      *> 3
+           SET LS-FACTOR(7) TO 0
+      *> 0
+           SET LS-FACTOR(8) TO 0
+      *> 4
+           SET LS-FACTOR(9) TO 0
+      *> 1
+           SET LS-FACTOR(10) TO 0
+      *> 5
+           SET LS-FACTOR(11) TO 0
+      *> 7
+           SET LS-FACTOR(12) TO 0
+      *> 1
+           SET LS-FACTOR(13) TO 0
+      *> 1
+           SET LS-FACTOR(14) TO 0
+      *> 4
+           SET LS-FACTOR(15) TO 0
+      *> 2
+           SET LS-FACTOR(16) TO 5
 
-           DISPLAY "Register A: " PROG-REG-A
-           DISPLAY "Register B: " PROG-REG-B
-           DISPLAY "Register C: " PROG-REG-C
-           DISPLAY OUTPUT-SIZE " output items"
-           PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
-               UNTIL OUTPUT-INDEX > OUTPUT-SIZE
-               DISPLAY OUTPUT-ITEM(OUTPUT-INDEX) "," NO ADVANCING
+           PERFORM 20000 TIMES
+
+               DISPLAY SPACE
+               DISPLAY "Iteration " LS-ITERATION
+               ADD 1 TO LS-ITERATION
+
+               SET LS-INIT-REG-A TO 0
+               PERFORM VARYING PROG-INSTR-PTR FROM 1 BY 1 UNTIL
+                   PROG-INSTR-PTR > PROG-SIZE
+                   COMPUTE LS-INIT-REG-A = LS-INIT-REG-A +
+                       LS-FACTOR(PROG-INSTR-PTR) *
+                           (8**(PROG-INSTR-PTR - 1))
+               END-PERFORM
+
+      *> Display the a register we'll try now
+
+               SET PROG-REG-A TO LS-INIT-REG-A
+               DISPLAY "Trying " PROG-REG-A ": (" NO ADVANCING
+               PERFORM VARYING PROG-INSTR-PTR FROM PROG-SIZE BY -1
+                   UNTIL PROG-INSTR-PTR = 0
+                   DISPLAY LS-FACTOR(PROG-INSTR-PTR) NO ADVANCING
+               END-PERFORM
+               DISPLAY ")"
+               SET OUTPUT-SIZE TO 0
+
+               CALL "RUN-PROGRAM" USING
+                   BY REFERENCE
+                   PROG-GRP
+                   OUTPUT-GRP
+                   RETURNING LS-PROGRAM-RESULT
+      *> Display the output, with x next to the ones that don't match
+      *> the program
+               DISPLAY "Program:" NO ADVANCING
+               PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+                   UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+                   DISPLAY PROG-ITEM(OUTPUT-INDEX)
+                       NO ADVANCING
+               END-PERFORM
+               DISPLAY SPACE
+               DISPLAY "Output :" NO ADVANCING
+               PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+                   UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+                   DISPLAY OUTPUT-ITEM(OUTPUT-INDEX)
+                       NO ADVANCING
+               END-PERFORM
+               DISPLAY SPACE
+      *> Find the first (rightmost in the output) number which
+      *> doesn't match the program.
+               PERFORM VARYING PROG-INSTR-PTR FROM PROG-SIZE BY -1
+                   UNTIL PROG-INSTR-PTR = 0
+                   IF OUTPUT-ITEM(PROG-INSTR-PTR) NOT =
+                       PROG-ITEM(PROG-INSTR-PTR)
+                       IF LS-FACTOR(PROG-INSTR-PTR) = 9
+                           SET LS-FACTOR(PROG-INSTR-PTR) TO 0
+                           ADD 1 TO PROG-INSTR-PTR
+                           ADD 1 TO LS-FACTOR(PROG-INSTR-PTR)
+                       ELSE
+                           ADD 1 TO LS-FACTOR(PROG-INSTR-PTR) 
+                       END-IF
+                       EXIT PERFORM
+                   END-IF
+               END-PERFORM
+
+
+
+               IF LS-PROGRAM-RESULT = 0
+                   DISPLAY "Self-generating program with "
+                   LS-INIT-REG-A
+                   DISPLAY "Register A: " PROG-REG-A
+                   DISPLAY "Register B: " PROG-REG-B
+                   DISPLAY "Register C: " PROG-REG-C
+                   EXIT PERFORM
+               END-IF
+
            END-PERFORM
-           DISPLAY SPACE
            .
        END PROGRAM DAY17.
 
@@ -118,6 +219,7 @@
 
       *> ===============================================================
       *> RUN-PROGRAM.
+      *> Return 0 if the output is identical to the input.
       *> ===============================================================
        IDENTIFICATION DIVISION.
        PROGRAM-ID. RUN-PROGRAM.
@@ -201,11 +303,23 @@
                IF NOT (LS-OPCODE = C-JNZ AND PROG-REG-A NOT = 0)
                    ADD 2 TO PROG-INSTR-PTR
                END-IF
-               IF FUNCTION MOD(OUTPUT-SIZE, 10) = 0
-                   display OUTPUT-SIZE
-               END-IF
                 
            END-PERFORM
+
+      *> Check if the output is identical to the input.
+           IF OUTPUT-SIZE NOT = PROG-SIZE
+               SET RETURN-CODE TO 1
+               GOBACK
+           END-IF
+           PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+               UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+               IF OUTPUT-ITEM(OUTPUT-INDEX) NOT =
+                   PROG-ITEM(OUTPUT-INDEX)
+                   SET RETURN-CODE TO 1
+                   GOBACK
+               END-IF
+           END-PERFORM
+           SET RETURN-CODE TO 0
            GOBACK.
        END PROGRAM RUN-PROGRAM.
 
