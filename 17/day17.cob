@@ -9,6 +9,8 @@
        01  LS-INIT-REG-B                  PIC 9(16) COMP.
        01  LS-INIT-REG-C                  PIC 9(16) COMP.
        01  LS-PROGRAM-RESULT              PIC 9(1).
+       01  LS-FACTORS OCCURS 16 TIMES.
+           05  LS-FACTOR                  PIC 9(1).
        COPY "prog" IN "17".
        COPY "output" IN "17".
 
@@ -20,62 +22,74 @@
                BY REFERENCE LS-FILE-PATH
                PROG-GRP
 
-           COMPUTE LS-INIT-REG-A = 
-      *> Program: 2,4,1,1,7,5,1,4,0,3,4,5,5,5,3,0
       *> 0
-               5*(8**15) + 
+           SET LS-FACTOR(1) TO 5
       *> 3
-               6*(8**14) +
+           SET LS-FACTOR(2) TO 6
       *> 5
-               0*(8**13) +
+           SET LS-FACTOR(3) TO 0
       *> 5
-               0*(8**12) +
+           SET LS-FACTOR(4) TO 0
       *> 5
-               1*(8**11) +
+           SET LS-FACTOR(5) TO 1
       *> 4
-               3*(8**10) +
+           SET LS-FACTOR(6) TO 3
       *> 3
-               7*(8**9) +
+           SET LS-FACTOR(7) TO 7
       *> 0
-               2*(8**8) +
+           SET LS-FACTOR(8) TO 2
       *> 4
-               6*(8**7) +
+           SET LS-FACTOR(9) TO 6
       *> 1
-               2*(8**6) +
+           SET LS-FACTOR(10) TO 2
       *> 5
-               1*(8**5) +
+           SET LS-FACTOR(11) TO 1
       *> 7
-               0*(8**4) +
+           SET LS-FACTOR(12) TO 0
       *> 1
-               2*(8**3) +
+           SET LS-FACTOR(13) TO 2
       *> 1
-               4*(8**2) +
+           SET LS-FACTOR(14) TO 4
       *> 4
-               4*(8**1) +
+           SET LS-FACTOR(15) TO 4
       *> 2
-               3*(8**0)
-               SET PROG-REG-A TO LS-INIT-REG-A
-               DISPLAY "Trying " PROG-REG-A ": " NO ADVANCING
-               SET OUTPUT-SIZE TO 0
+           SET LS-FACTOR(16) TO 3
 
-               CALL "RUN-PROGRAM" USING
-                   BY REFERENCE
-                   PROG-GRP
-                   OUTPUT-GRP
-                   RETURNING LS-PROGRAM-RESULT
-               DISPLAY OUTPUT-SIZE " items"
-               PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
-                   UNTIL OUTPUT-INDEX > OUTPUT-SIZE
-                   DISPLAY OUTPUT-ITEM(OUTPUT-INDEX) "," NO ADVANCING
+           SET LS-INIT-REG-A TO 0
+           PERFORM VARYING PROG-INSTR-PTR FROM 1 BY 1 UNTIL
+               PROG-INSTR-PTR > PROG-SIZE
+               COMPUTE LS-INIT-REG-A = LS-INIT-REG-A +
+                   LS-FACTOR(PROG-INSTR-PTR) *
+                       (8**(PROG-SIZE - PROG-INSTR-PTR))
+           END-PERFORM
+               PERFORM 1 TIMES
+                   SET PROG-REG-A TO LS-INIT-REG-A
+                   DISPLAY "Trying " PROG-REG-A ": " NO ADVANCING
+                   SET OUTPUT-SIZE TO 0
+
+                   CALL "RUN-PROGRAM" USING
+                       BY REFERENCE
+                       PROG-GRP
+                       OUTPUT-GRP
+                       RETURNING LS-PROGRAM-RESULT
+                   DISPLAY OUTPUT-SIZE " items"
+                   PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+                       UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+                       DISPLAY OUTPUT-ITEM(OUTPUT-INDEX) ","
+                           NO ADVANCING
+                   END-PERFORM
+                   DISPLAY SPACE
+                   IF LS-PROGRAM-RESULT = 0
+                       DISPLAY "Self-generating program with "
+                       LS-INIT-REG-A
+                       DISPLAY "Register A: " PROG-REG-A
+                       DISPLAY "Register B: " PROG-REG-B
+                       DISPLAY "Register C: " PROG-REG-C
+                       EXIT PERFORM
+                   END-IF
+                   ADD -8 TO LS-INIT-REG-A
+
                END-PERFORM
-               DISPLAY SPACE
-               IF LS-PROGRAM-RESULT = 0
-                   DISPLAY "Self-generating program with " LS-INIT-REG-A
-                   DISPLAY "Register A: " PROG-REG-A
-                   DISPLAY "Register B: " PROG-REG-B
-                   DISPLAY "Register C: " PROG-REG-C
-               END-IF
-
            .
        END PROGRAM DAY17.
 
