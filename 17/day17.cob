@@ -2,6 +2,9 @@
        PROGRAM-ID. DAY17.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-NULL-CHAR  CONSTANT 0.
+       01  WS-BASE       CONSTANT 8.
 
        LOCAL-STORAGE SECTION.
        01  LS-FILE-PATH                   PIC X(30).
@@ -9,6 +12,10 @@
        01  LS-INIT-REG-B                  PIC 9(16) COMP.
        01  LS-INIT-REG-C                  PIC 9(16) COMP.
        01  LS-ITERATION                   PIC 9(5) VALUE 0.
+       01  LS-DEPTH                       PIC 9(2).
+       01  LS-DEPTH-OK                    PIC 9(1).
+       01  LS-REG-A-STR                   PIC X(16).
+       01  LS-REG-A-TRUNC                 PIC 9(16) COMP.
        01  LS-PROGRAM-RESULT              PIC 9(1).
        01  LS-FACTORS OCCURS 16 TIMES.
            05  LS-FACTOR                  PIC 9(1).
@@ -56,10 +63,11 @@
       *> 2
            SET LS-FACTOR(16) TO 5
 
+           SET LS-DEPTH TO 1
            PERFORM 20000 TIMES
-
+            
                DISPLAY SPACE
-               DISPLAY "Iteration " LS-ITERATION
+               DISPLAY "Iteration " LS-ITERATION ", depth " LS-DEPTH
                ADD 1 TO LS-ITERATION
 
                SET LS-INIT-REG-A TO 0
@@ -69,10 +77,28 @@
                        LS-FACTOR(PROG-INSTR-PTR) *
                            (8**(PROG-INSTR-PTR - 1))
                END-PERFORM
+               SET PROG-INSTR-PTR TO PROG-SIZE
+               PERFORM LS-DEPTH TIMES
+                   SET LS-REG-A-STR(PROG-SIZE - PROG-INSTR-PTR + 1:1) TO
+                   LS-FACTOR(PROG-INSTR-PTR) 
+                   ADD -1 TO PROG-INSTR-PTR
+               END-PERFORM
+               display LS-REG-A-STR(1:LS-DEPTH)
+               CALL "strtol" USING
+                   BY VALUE LS-REG-A-STR
+                   BY VALUE WS-NULL-CHAR
+                   BY VALUE WS-BASE
+                   RETURNING LS-REG-A-TRUNC
+
+               display ls-reg-a-trunc
+
+
+
 
       *> Display the a register we'll try now
 
                SET PROG-REG-A TO LS-INIT-REG-A
+               MOVE LS-REG-A-TRUNC TO PROG-REG-A
                DISPLAY "Trying " PROG-REG-A ": (" NO ADVANCING
                PERFORM VARYING PROG-INSTR-PTR FROM PROG-SIZE BY -1
                    UNTIL PROG-INSTR-PTR = 0
@@ -89,10 +115,11 @@
       *> Display the output, with x next to the ones that don't match
       *> the program
                DISPLAY "Program:" NO ADVANCING
-               PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
-                   UNTIL OUTPUT-INDEX > OUTPUT-SIZE
-                   DISPLAY PROG-ITEM(OUTPUT-INDEX)
+               COMPUTE PROG-INSTR-PTR = PROG-SIZE - LS-DEPTH + 1
+               PERFORM LS-DEPTH TIMES
+                   DISPLAY PROG-ITEM(PROG-INSTR-PTR)
                        NO ADVANCING
+                   ADD 1 TO PROG-INSTR-PTR
                END-PERFORM
                DISPLAY SPACE
                DISPLAY "Output :" NO ADVANCING
@@ -104,20 +131,38 @@
                DISPLAY SPACE
       *> Find the first (rightmost in the output) number which
       *> doesn't match the program.
-               PERFORM VARYING PROG-INSTR-PTR FROM PROG-SIZE BY -1
-                   UNTIL PROG-INSTR-PTR = 0
-                   IF OUTPUT-ITEM(PROG-INSTR-PTR) NOT =
-                       PROG-ITEM(PROG-INSTR-PTR)
-                       IF LS-FACTOR(PROG-INSTR-PTR) = 9
-                           SET LS-FACTOR(PROG-INSTR-PTR) TO 0
-                           ADD 1 TO PROG-INSTR-PTR
-                           ADD 1 TO LS-FACTOR(PROG-INSTR-PTR)
-                       ELSE
-                           ADD 1 TO LS-FACTOR(PROG-INSTR-PTR) 
-                       END-IF
-                       EXIT PERFORM
+               SET LS-DEPTH-OK TO 1
+               COMPUTE PROG-INSTR-PTR = PROG-SIZE - LS-DEPTH + 1
+               IF OUTPUT-ITEM(1) NOT = PROG-ITEM(PROG-INSTR-PTR)
+                   SET LS-DEPTH-OK TO 0
+                   IF LS-FACTOR(PROG-INSTR-PTR) = 9
+                       SET LS-FACTOR(PROG-INSTR-PTR) TO 0
+                       ADD 1 TO PROG-INSTR-PTR
+                       ADD 1 TO LS-FACTOR(PROG-INSTR-PTR)
+                   ELSE
+                       ADD 1 TO LS-FACTOR(PROG-INSTR-PTR) 
                    END-IF
-               END-PERFORM
+               END-IF
+      *>         PERFORM LS-DEPTH TIMES
+      *>             IF OUTPUT-ITEM(PROG-INSTR-PTR) NOT =
+      *>                 PROG-ITEM(PROG-INSTR-PTR)
+      *>                 SET LS-DEPTH-OK TO 0
+      *>                 IF LS-FACTOR(PROG-INSTR-PTR) = 9
+      *>                     SET LS-FACTOR(PROG-INSTR-PTR) TO 0
+      *>                     ADD 1 TO PROG-INSTR-PTR
+      *>                     ADD 1 TO LS-FACTOR(PROG-INSTR-PTR)
+      *>                 ELSE
+      *>                     ADD 1 TO LS-FACTOR(PROG-INSTR-PTR) 
+      *>                 END-IF
+      *>                 EXIT PERFORM
+      *>             END-IF
+      *>             ADD -1 TO PROG-INSTR-PTR
+      *>         END-PERFORM
+               IF LS-DEPTH-OK = 1
+                   display "good"
+                   ADD 1 TO LS-DEPTH
+               END-IF
+
 
 
 
