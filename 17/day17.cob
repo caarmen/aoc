@@ -5,21 +5,10 @@
 
        LOCAL-STORAGE SECTION.
        01  LS-FILE-PATH                   PIC X(30).
-       01  LS-ITERATION                   PIC 9(16) VALUE 1.
        01  LS-INIT-REG-A                  PIC 9(18) COMP.
        01  LS-INIT-REG-B                  PIC 9(16) COMP.
        01  LS-INIT-REG-C                  PIC 9(16) COMP.
        01  LS-PROGRAM-RESULT              PIC 9(1).
-       01  LS-ITERATION-DIFF              PIC 9(16).
-       01  LS-OUTPUT-INDEX                PIC 9(2).
-       01  COUNTER-GRP.
-           05  COUNTER-SIZE               PIC 9(2) VALUE 0.
-           05  COUNTER-ITEMS OCCURS 1 TO 99 TIMES
-               DEPENDING ON COUNTER-SIZE.
-               10  COUNTER-LAST-VALUE     PIC 9(1) VALUE 0.
-               10  COUNTER-LAST-ITERATION PIC 9(16) VALUE 0.
-               10  COUNTER-LAST-GAP       PIC 9(16) VALUE
-                                              9999999999999.
        COPY "prog" IN "17".
        COPY "output" IN "17".
 
@@ -31,15 +20,6 @@
                BY REFERENCE LS-FILE-PATH
                PROG-GRP
 
-           SET COUNTER-SIZE TO PROG-SIZE
-           PERFORM VARYING LS-OUTPUT-INDEX FROM 1 BY 1
-               UNTIL LS-OUTPUT-INDEX > PROG-SIZE
-               SET COUNTER-LAST-VALUE(LS-OUTPUT-INDEX) TO 0
-               SET COUNTER-LAST-ITERATION(LS-OUTPUT-INDEX) TO 0
-               SET COUNTER-LAST-GAP(LS-OUTPUT-INDEX) TO 9999999999999
-           END-PERFORM
-
-           COMPUTE LS-INIT-REG-A = 202322610000000 - 0*(8**9)
            COMPUTE LS-INIT-REG-A = 
       *> Program: 2,4,1,1,7,5,1,4,0,3,4,5,5,5,3,0
       *> 0
@@ -69,96 +49,33 @@
       *> 1
                2*(8**3) +
       *> 1
-               3*(8**2) +
+               5*(8**2) +
       *> 4
-               0*(8**1) +
+               4*(8**1) +
       *> 2
-               1*(8**0)
-
-      *>     PERFORM VARYING LS-OUTPUT-INDEX FROM 1 BY 1
-      *>         UNTIL LS-OUTPUT-INDEX > PROG-SIZE
-      *>         COMPUTE LS-INIT-REG-A = LS-INIT-REG-A +
-      *>             PROG-ITEM(LS-OUTPUT-INDEX) *
-      *>             (8 ** LS-OUTPUT-INDEX)
-      *>     END-PERFORM
-
-
-           SET LS-INIT-REG-B TO PROG-REG-B
-           SET LS-INIT-REG-C TO PROG-REG-C
-           SET LS-ITERATION TO 0
-           PERFORM UNTIL EXIT
-
+               3*(8**0)
                SET PROG-REG-A TO LS-INIT-REG-A
-               SET PROG-REG-B TO LS-INIT-REG-B
-               SET PROG-REG-C TO LS-INIT-REG-C
+               DISPLAY "Trying " PROG-REG-A ": " NO ADVANCING
                SET OUTPUT-SIZE TO 0
-
-               DISPLAY "Trying " LS-INIT-REG-A ": " NO ADVANCING
 
                CALL "RUN-PROGRAM" USING
                    BY REFERENCE
                    PROG-GRP
                    OUTPUT-GRP
                    RETURNING LS-PROGRAM-RESULT
-
-
-      *>         PERFORM VARYING LS-OUTPUT-INDEX FROM 1 BY 1
-      *>             UNTIL LS-OUTPUT-INDEX > OUTPUT-SIZE
-      *>         
-      *>             IF OUTPUT-ITEM(LS-OUTPUT-INDEX) NOT =
-      *>                 COUNTER-LAST-VALUE(LS-OUTPUT-INDEX)
-
-      *>                 COMPUTE LS-ITERATION-DIFF = LS-ITERATION -
-      *>                     COUNTER-LAST-ITERATION(LS-OUTPUT-INDEX)
-
-      *>                 IF LS-ITERATION-DIFF <
-      *>                     COUNTER-LAST-GAP(LS-OUTPUT-INDEX)
-
-      *>                     DISPLAY ls-iteration ": Index "
-      *>                         LS-OUTPUT-INDEX
-      *>                         " changed from "
-      *>                         counter-last-value(ls-output-index)
-      *>                         " to "
-      *>                         output-item(ls-output-index) " after "
-      *>                         LS-ITERATION-DIFF " iterations. "
-      *>                         "last gap "
-      *>                         counter-last-gap(ls-output-index)
-
-      *>                     SET COUNTER-LAST-GAP(LS-OUTPUT-INDEX) TO
-      *>                         LS-ITERATION-DIFF
-      *>                 END-IF
-
-      *>                 SET COUNTER-LAST-VALUE(LS-OUTPUT-INDEX)
-      *>                     TO OUTPUT-ITEM(LS-OUTPUT-INDEX)
-
-      *>                 SET COUNTER-LAST-ITERATION(LS-OUTPUT-INDEX)
-      *>                     TO LS-ITERATION
-      *>             END-IF
-      *>         END-PERFORM
-
-               PERFORM VARYING LS-OUTPUT-INDEX FROM 1 BY 1
-                   UNTIL LS-OUTPUT-INDEX > OUTPUT-SIZE
-                   DISPLAY OUTPUT-ITEM(LS-OUTPUT-INDEX) "," NO ADVANCING
+               DISPLAY OUTPUT-SIZE " items"
+               PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+                   UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+                   DISPLAY OUTPUT-ITEM(OUTPUT-INDEX) "," NO ADVANCING
                END-PERFORM
                DISPLAY SPACE
-
                IF LS-PROGRAM-RESULT = 0
                    DISPLAY "Self-generating program with " LS-INIT-REG-A
                    DISPLAY "Register A: " PROG-REG-A
                    DISPLAY "Register B: " PROG-REG-B
                    DISPLAY "Register C: " PROG-REG-C
-                   DISPLAY OUTPUT-SIZE " output items"
-                   PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
-                       UNTIL OUTPUT-INDEX > OUTPUT-SIZE
-                       DISPLAY OUTPUT-ITEM(OUTPUT-INDEX) ","
-                           NO ADVANCING
-                   END-PERFORM
-                   DISPLAY SPACE
-                   EXIT PERFORM
                END-IF
-               ADD 1 TO LS-INIT-REG-A
-           END-PERFORM
-           DISPLAY SPACE
+
            .
        END PROGRAM DAY17.
 
