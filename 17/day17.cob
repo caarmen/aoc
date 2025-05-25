@@ -31,21 +31,21 @@
       *> 5
            SET LS-FACTOR(4) TO 2
       *> 5
-           SET LS-FACTOR(5) TO 8
+           SET LS-FACTOR(5) TO 0
       *> 4
-           SET LS-FACTOR(6) TO 8
+           SET LS-FACTOR(6) TO 1
       *> 3
-           SET LS-FACTOR(7) TO 9
+           SET LS-FACTOR(7) TO 2
       *> 0
-           SET LS-FACTOR(8) TO 5
+           SET LS-FACTOR(8) TO 6
       *> 4
            SET LS-FACTOR(9) TO 2
       *> 1
            SET LS-FACTOR(10) TO 7
       *> 5
-           SET LS-FACTOR(11) TO 5
+           SET LS-FACTOR(11) TO 3
       *> 7
-           SET LS-FACTOR(12) TO 9
+           SET LS-FACTOR(12) TO 1
       *> 1
            SET LS-FACTOR(13) TO 0
       *> 1
