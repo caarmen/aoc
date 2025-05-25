@@ -23,73 +23,98 @@
                PROG-GRP
 
       *> 0
-           SET LS-FACTOR(1) TO 5
+           SET LS-FACTOR(1) TO 3
       *> 3
-           SET LS-FACTOR(2) TO 6
+           SET LS-FACTOR(2) TO 4
       *> 5
-           SET LS-FACTOR(3) TO 0
+           SET LS-FACTOR(3) TO 4
       *> 5
-           SET LS-FACTOR(4) TO 0
+           SET LS-FACTOR(4) TO 2
       *> 5
-           SET LS-FACTOR(5) TO 1
+           SET LS-FACTOR(5) TO 8
       *> 4
-           SET LS-FACTOR(6) TO 3
+           SET LS-FACTOR(6) TO 8
       *> 3
-           SET LS-FACTOR(7) TO 7
+           SET LS-FACTOR(7) TO 9
       *> 0
-           SET LS-FACTOR(8) TO 2
+           SET LS-FACTOR(8) TO 5
       *> 4
-           SET LS-FACTOR(9) TO 6
+           SET LS-FACTOR(9) TO 2
       *> 1
-           SET LS-FACTOR(10) TO 2
+           SET LS-FACTOR(10) TO 7
       *> 5
-           SET LS-FACTOR(11) TO 1
+           SET LS-FACTOR(11) TO 5
       *> 7
-           SET LS-FACTOR(12) TO 0
+           SET LS-FACTOR(12) TO 9
       *> 1
-           SET LS-FACTOR(13) TO 2
+           SET LS-FACTOR(13) TO 0
       *> 1
-           SET LS-FACTOR(14) TO 4
+           SET LS-FACTOR(14) TO 0
       *> 4
-           SET LS-FACTOR(15) TO 4
+           SET LS-FACTOR(15) TO 6
       *> 2
-           SET LS-FACTOR(16) TO 3
+           SET LS-FACTOR(16) TO 5
 
-           SET LS-INIT-REG-A TO 0
-           PERFORM VARYING PROG-INSTR-PTR FROM 1 BY 1 UNTIL
-               PROG-INSTR-PTR > PROG-SIZE
-               COMPUTE LS-INIT-REG-A = LS-INIT-REG-A +
-                   LS-FACTOR(PROG-INSTR-PTR) *
-                       (8**(PROG-SIZE - PROG-INSTR-PTR))
-           END-PERFORM
-               PERFORM 1 TIMES
-                   SET PROG-REG-A TO LS-INIT-REG-A
-                   DISPLAY "Trying " PROG-REG-A ": " NO ADVANCING
-                   SET OUTPUT-SIZE TO 0
+           PERFORM 1 TIMES
 
-                   CALL "RUN-PROGRAM" USING
-                       BY REFERENCE
-                       PROG-GRP
-                       OUTPUT-GRP
-                       RETURNING LS-PROGRAM-RESULT
-                   DISPLAY OUTPUT-SIZE " items"
-                   PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
-                       UNTIL OUTPUT-INDEX > OUTPUT-SIZE
-                       DISPLAY OUTPUT-ITEM(OUTPUT-INDEX) ","
-                           NO ADVANCING
-                   END-PERFORM
-                   DISPLAY SPACE
-                   IF LS-PROGRAM-RESULT = 0
-                       DISPLAY "Self-generating program with "
-                       LS-INIT-REG-A
-                       DISPLAY "Register A: " PROG-REG-A
-                       DISPLAY "Register B: " PROG-REG-B
-                       DISPLAY "Register C: " PROG-REG-C
+               SET LS-INIT-REG-A TO 0
+               display "factors "
+               PERFORM VARYING PROG-INSTR-PTR FROM 1 BY 1 UNTIL
+                   PROG-INSTR-PTR > PROG-SIZE
+                   display ls-factor(prog-instr-ptr) no advancing
+                   COMPUTE LS-INIT-REG-A = LS-INIT-REG-A +
+                       LS-FACTOR(PROG-INSTR-PTR) *
+                           (8**(PROG-INSTR-PTR - 1))
+               END-PERFORM
+               display space
+
+               SET PROG-REG-A TO LS-INIT-REG-A
+               DISPLAY "Trying " PROG-REG-A ": " NO ADVANCING
+               SET OUTPUT-SIZE TO 0
+
+               CALL "RUN-PROGRAM" USING
+                   BY REFERENCE
+                   PROG-GRP
+                   OUTPUT-GRP
+                   RETURNING LS-PROGRAM-RESULT
+               DISPLAY OUTPUT-SIZE " items"
+               PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+                   UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+                   DISPLAY OUTPUT-ITEM(OUTPUT-INDEX)
+                       NO ADVANCING
+                   IF OUTPUT-ITEM(OUTPUT-INDEX) NOT =
+                       PROG-ITEM(OUTPUT-INDEX)
+                       DISPLAY "x" NO ADVANCING
+                   END-IF
+                   DISPLAY "," NO ADVANCING
+               END-PERFORM
+               DISPLAY SPACE
+               PERFORM VARYING PROG-INSTR-PTR FROM PROG-SIZE BY -1
+                   UNTIL PROG-INSTR-PTR = 0
+                   IF OUTPUT-ITEM(PROG-INSTR-PTR) NOT =
+                       PROG-ITEM(PROG-INSTR-PTR)
+                       display "bump " PROG-INSTR-PTR 
+                       " ( " LS-FACTOR(PROG-INSTR-PTR) ")"
+                       ADD 1 TO LS-FACTOR(PROG-INSTR-PTR) 
                        EXIT PERFORM
                    END-IF
-                   ADD -8 TO LS-INIT-REG-A
-
                END-PERFORM
+               ADD -1 TO PROG-INSTR-PTR
+               PERFORM VARYING PROG-INSTR-PTR FROM PROG-INSTR-PTR BY -1
+                   UNTIL PROG-INSTR-PTR = 0
+                   SET LS-FACTOR(PROG-INSTR-PTR) TO 0
+               END-PERFORM
+
+               IF LS-PROGRAM-RESULT = 0
+                   DISPLAY "Self-generating program with "
+                   LS-INIT-REG-A
+                   DISPLAY "Register A: " PROG-REG-A
+                   DISPLAY "Register B: " PROG-REG-B
+                   DISPLAY "Register C: " PROG-REG-C
+                   EXIT PERFORM
+               END-IF
+
+           END-PERFORM
            .
        END PROGRAM DAY17.
 
