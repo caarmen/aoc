@@ -11,6 +11,7 @@
        01  LS-ITERATION                   PIC 9(5) VALUE 0.
        01  LS-PROGRAM-RESULT              PIC 9(1).
        01  LS-OCTAL-STRING                PIC X(50).
+       01  LS-FOUND-IT                    PIC 9(1) VALUE 0.
        COPY "prog" IN "17".
        COPY "output" IN "17".
        COPY "queue" IN "17".
@@ -29,7 +30,7 @@
 
       *> Inspiration: https://www.youtube.com/watch?v=QpvAyg1RIYI
 
-           PERFORM UNTIL QUEUE-SIZE = 0
+           PERFORM UNTIL QUEUE-SIZE = 0 OR LS-FOUND-IT = 1
                CALL "DEQUEUE" USING
                    QUEUE-GRP
                    LS-OCTAL-STRING
@@ -82,6 +83,8 @@
                        DISPLAY "Register A: " PROG-REG-A
                        DISPLAY "Register B: " PROG-REG-B
                        DISPLAY "Register C: " PROG-REG-C
+                       SET LS-FOUND-IT TO 1
+                       EXIT PERFORM
                    END-IF
                    IF OUTPUT-ITEM(1) =
                        PROG-ITEMS(PROG-SIZE - OUTPUT-SIZE + 1)
@@ -229,10 +232,11 @@
                            (2**LS-COMBO-OPERAND)
                        SET PROG-REG-A TO LS-TEMP-RESULT
                    WHEN C-BXL
-                       CALL "xor" USING
-                           BY VALUE PROG-REG-B
-                           BY VALUE LS-OPERAND
-                           RETURNING LS-TEMP-RESULT
+                       SET LS-TEMP-RESULT TO LS-OPERAND
+                       CALL "CBL_XOR" USING
+                           PROG-REG-B
+                           LS-TEMP-RESULT
+                           BY VALUE 8
                        SET PROG-REG-B TO LS-TEMP-RESULT
                    WHEN C-BST
                        COMPUTE LS-TEMP-RESULT = FUNCTION MOD(
@@ -244,10 +248,11 @@
                            COMPUTE PROG-INSTR-PTR = LS-OPERAND + 1
                        END-IF
                    WHEN C-BXC
-                       CALL "xor" USING
-                           BY VALUE PROG-REG-B
-                           BY VALUE PROG-REG-C
-                           RETURNING LS-TEMP-RESULT
+                       SET LS-TEMP-RESULT TO PROG-REG-C
+                       CALL "CBL_XOR" USING
+                           PROG-REG-B
+                           LS-TEMP-RESULT
+                           BY VALUE 8
                        SET PROG-REG-B TO LS-TEMP-RESULT
                    WHEN C-OUT
                        COMPUTE LS-TEMP-RESULT = FUNCTION MOD(
