@@ -111,7 +111,7 @@
        PROCEDURE DIVISION USING BY REFERENCE
            TOWELS-GRP
            IN-PATTERN.
-           display "pattern " in-pattern
+      *>     display "pattern " in-pattern
 
            SET CACHE-SIZE TO 0
            SET LS-INPUT-LENGTH TO LENGTH OF FUNCTION TRIM(IN-PATTERN)
@@ -134,7 +134,7 @@
                SET LS-SUBSTRING-LENGTH TO LENGTH OF FUNCTION
                    TRIM(LS-SUBSTRING
                )
-               display "substring " ls-substring
+      *>         display "substring " ls-substring
                PERFORM VARYING LS-INPUT-INDEX-LEFT FROM 1 BY 1 UNTIL
                    LS-INPUT-INDEX-LEFT > LS-SUBSTRING-LENGTH
                    PERFORM VARYING TOWEL-INDEX FROM 1 BY 1
