@@ -5,13 +5,12 @@
 
        LOCAL-STORAGE SECTION.
        01  LS-FILE-PATH                   PIC X(30).
-       01  LS-INIT-REG-A                  PIC 9(18) COMP.
+       01  LS-INIT-REG-A                  PIC 9(18) COMP VALUE 0.
        01  LS-INIT-REG-B                  PIC 9(16) COMP.
        01  LS-INIT-REG-C                  PIC 9(16) COMP.
        01  LS-ITERATION                   PIC 9(5) VALUE 0.
        01  LS-PROGRAM-RESULT              PIC 9(1).
-       01  LS-FACTORS OCCURS 16 TIMES.
-           05  LS-FACTOR                  PIC 9(1).
+       01  LS-OCTAL-STRING                PIC X(50).
        COPY "prog" IN "17".
        COPY "output" IN "17".
 
@@ -22,63 +21,22 @@
            CALL "PARSE-FILE" USING
                BY REFERENCE LS-FILE-PATH
                PROG-GRP
+           SET LS-OCTAL-STRING TO "5600137262102440"
+           CALL "FROM-OCTAL-STRING" USING
+               LS-OCTAL-STRING
+               LS-INIt-REG-A
 
-      *> 0
-           SET LS-FACTOR(1) TO 0
-      *> 3
-           SET LS-FACTOR(2) TO 0
-      *> 5
-           SET LS-FACTOR(3) TO 0
-      *> 5
-           SET LS-FACTOR(4) TO 0
-      *> 5
-           SET LS-FACTOR(5) TO 0
-      *> 4
-           SET LS-FACTOR(6) TO 0
-      *> 3
-           SET LS-FACTOR(7) TO 0
-      *> 0
-           SET LS-FACTOR(8) TO 0
-      *> 4
-           SET LS-FACTOR(9) TO 0
-      *> 1
-           SET LS-FACTOR(10) TO 0
-      *> 5
-           SET LS-FACTOR(11) TO 0
-      *> 7
-           SET LS-FACTOR(12) TO 0
-      *> 1
-           SET LS-FACTOR(13) TO 0
-      *> 1
-           SET LS-FACTOR(14) TO 0
-      *> 4
-           SET LS-FACTOR(15) TO 0
-      *> 2
-           SET LS-FACTOR(16) TO 5
+           PERFORM 8 TIMES
 
-           PERFORM 20000 TIMES
-
-               DISPLAY SPACE
-               DISPLAY "Iteration " LS-ITERATION
-               ADD 1 TO LS-ITERATION
-
-               SET LS-INIT-REG-A TO 0
-               PERFORM VARYING PROG-INSTR-PTR FROM 1 BY 1 UNTIL
-                   PROG-INSTR-PTR > PROG-SIZE
-                   COMPUTE LS-INIT-REG-A = LS-INIT-REG-A +
-                       LS-FACTOR(PROG-INSTR-PTR) *
-                           (8**(PROG-INSTR-PTR - 1))
-               END-PERFORM
 
       *> Display the a register we'll try now
 
                SET PROG-REG-A TO LS-INIT-REG-A
-               DISPLAY "Trying " PROG-REG-A ": (" NO ADVANCING
-               PERFORM VARYING PROG-INSTR-PTR FROM PROG-SIZE BY -1
-                   UNTIL PROG-INSTR-PTR = 0
-                   DISPLAY LS-FACTOR(PROG-INSTR-PTR) NO ADVANCING
-               END-PERFORM
-               DISPLAY ")"
+               CALL "TO-OCTAL-STRING" USING
+                   LS-INIT-REG-A
+                   LS-OCTAL-STRING
+               DISPLAY "[" FUNCTION TRIM(LS-OCTAL-STRING)
+                   "|" LS-INIT-REG-A "]" NO ADVANCING 
                SET OUTPUT-SIZE TO 0
 
                CALL "RUN-PROGRAM" USING
@@ -86,40 +44,21 @@
                    PROG-GRP
                    OUTPUT-GRP
                    RETURNING LS-PROGRAM-RESULT
-      *> Display the output, with x next to the ones that don't match
-      *> the program
-               DISPLAY "Program:" NO ADVANCING
-               PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
-                   UNTIL OUTPUT-INDEX > OUTPUT-SIZE
-                   DISPLAY PROG-ITEM(OUTPUT-INDEX)
+      *> Display the program
+               DISPLAY "[" NO ADVANCING
+               PERFORM VARYING PROG-INSTR-PTR FROM 1 BY 1
+                   UNTIL PROG-INSTR-PTR > PROG-SIZE
+                   DISPLAY PROG-ITEM(PROG-INSTR-PTR)
                        NO ADVANCING
                END-PERFORM
-               DISPLAY SPACE
-               DISPLAY "Output :" NO ADVANCING
+      *> Display the output
+               DISPLAY "][" NO ADVANCING
                PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
                    UNTIL OUTPUT-INDEX > OUTPUT-SIZE
                    DISPLAY OUTPUT-ITEM(OUTPUT-INDEX)
                        NO ADVANCING
                END-PERFORM
-               DISPLAY SPACE
-      *> Find the first (rightmost in the output) number which
-      *> doesn't match the program.
-               PERFORM VARYING PROG-INSTR-PTR FROM PROG-SIZE BY -1
-                   UNTIL PROG-INSTR-PTR = 0
-                   IF OUTPUT-ITEM(PROG-INSTR-PTR) NOT =
-                       PROG-ITEM(PROG-INSTR-PTR)
-                       IF LS-FACTOR(PROG-INSTR-PTR) = 9
-                           SET LS-FACTOR(PROG-INSTR-PTR) TO 0
-                           ADD 1 TO PROG-INSTR-PTR
-                           ADD 1 TO LS-FACTOR(PROG-INSTR-PTR)
-                       ELSE
-                           ADD 1 TO LS-FACTOR(PROG-INSTR-PTR) 
-                       END-IF
-                       EXIT PERFORM
-                   END-IF
-               END-PERFORM
-
-
+               DISPLAY "]"
 
                IF LS-PROGRAM-RESULT = 0
                    DISPLAY "Self-generating program with "
@@ -129,6 +68,7 @@
                    DISPLAY "Register C: " PROG-REG-C
                    EXIT PERFORM
                END-IF
+               ADD 1 TO LS-INIT-REG-A
 
            END-PERFORM
            .
@@ -357,3 +297,81 @@
 
            GOBACK.
        END FUNCTION GET-COMBO-OPERAND.
+
+
+      *> ===============================================================
+      *> TO-OCTAL-STRING
+      *> ===============================================================
+     
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TO-OCTAL-STRING.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-NUMBER                            PIC 9(18) COMP.
+       01  LS-QUOTIENT                          PIC 9(18) COMP.
+       01  LS-REMAINDER                         PIC 9(1).
+       01  LS-TEMP-STRING                       PIC X(50).
+       LINKAGE SECTION.
+       01  IN-NUMBER                            PIC 9(18) COMP.
+       01  OUT-OCTAL-STRING                     PIC x(50).
+
+       PROCEDURE DIVISION USING BY REFERENCE
+           IN-NUMBER
+           OUT-OCTAL-STRING.
+
+           SET OUT-OCTAL-STRING TO SPACE
+
+           SET LS-NUMBER TO IN-NUMBER
+           PERFORM UNTIL LS-NUMBER = 0
+               DIVIDE 8 INTO LS-NUMBER
+                   GIVING LS-QUOTIENT REMAINDER LS-REMAINDER
+
+               STRING
+                   LS-REMAINDER
+                   FUNCTION TRIM(OUT-OCTAL-STRING)
+                   INTO LS-TEMP-STRING
+               END-STRING
+               MOVE LS-TEMP-STRING TO OUT-OCTAL-STRING
+
+               COMPUTE LS-NUMBER = LS-QUOTIENT
+
+           END-PERFORM
+           GOBACK.
+       END PROGRAM TO-OCTAL-STRING.
+
+      *> ===============================================================
+      *> FROM-OCTAL-STRING
+      *> ===============================================================
+     
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. FROM-OCTAL-STRING.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  WS-END-PTR                            CONSTANT 0.
+       01  WS-BASE                               CONSTANT 8.
+       LOCAL-STORAGE SECTION.
+       01  LS-INDEX                              PIC 9(18).
+       01  LS-LENGTH                             PIC 9(2).
+       01  LS-DIGIT                              PIC 9(1).
+       01  LS-POWER                              PIC 9(2).
+       LINKAGE SECTION.
+       01  IN-OCTAL-STRING                       PIC X(50).
+       01  OUT-NUMBER                            PIC 9(18) COMP.
+
+       PROCEDURE DIVISION USING BY REFERENCE
+           IN-OCTAL-STRING
+           OUT-NUMBER.
+
+           SET OUT-NUMBER TO 0
+           SET LS-POWER TO 0
+           SET LS-LENGTH TO LENGTH OF FUNCTION TRIM(IN-OCTAL-STRING)
+           PERFORM VARYING LS-INDEX FROM LS-LENGTH BY -1
+               UNTIL LS-INDEX = 0
+               SET LS-DIGIT TO IN-OCTAL-STRING(LS-INDEX:1)
+               COMPUTE OUT-NUMBER = OUT-NUMBER + LS-DIGIT *(8**LS-POWER)
+               ADD 1 TO LS-POWER
+           END-PERFORM
+
+           display in-octal-string" -> " out-number
+           GOBACK.
+       END PROGRAM FROM-OCTAL-STRING.
