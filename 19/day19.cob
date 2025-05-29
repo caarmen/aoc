@@ -67,7 +67,7 @@
                                END-PERFORM
                                display "parsed " towels-size " towels"
                            WHEN LS-LINE NOT = SPACE
-                               CALL "IS-PATTERN-POSSIBLE" USING
+                               CALL "PROCESS-STRING" USING
                                    TOWELS-GRP
                                    LS-LINE
                                    RETURNING LS-ITER-POSSIBLE-COUNT
@@ -84,12 +84,106 @@
        END PROGRAM PROCESS-FILE.
 
       *> ===============================================================
-      *> IS-PATTERN-POSSIBLE.
+      *> PROCESS-STRING
       *> Return the number of towel combinations possible to make this
       *> pattern.
       *> ===============================================================
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. IS-PATTERN-POSSIBLE.
+       PROGRAM-ID. PROCESS-STRING.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       COPY "cache" IN "19".
+       01  LS-INPUT-INDEX-RIGHT             PIC 9(3).
+       01  LS-INPUT-INDEX-LEFT              PIC 9(3).
+       01  LS-INPUT-LENGTH                  PIC 9(3).
+       01  LS-SUBSTRING                     PIC X(100).
+       01  LS-SUBSTRING-LEFT                PIC X(100).
+       01  LS-SUBSTRING-RIGHT               PIC X(100).
+       01  LS-SUBSTRING-LENGTH              PIC 9(3).
+       01  LS-SUBSTRING-COUNT               PIC 9(6).
+       01  LS-CACHE-RESULT                  PIC 9(1).
+       01  LS-TOTAL-POSSIBLE-COUNT          PIC 9(6) VALUE 0.
+
+       LINKAGE SECTION.
+       COPY "towel" IN "19".
+       01  IN-PATTERN                        PIC X(100).
+       PROCEDURE DIVISION USING BY REFERENCE
+           TOWELS-GRP
+           IN-PATTERN.
+           display "pattern " in-pattern
+
+           SET CACHE-SIZE TO 0
+           SET LS-INPUT-LENGTH TO LENGTH OF FUNCTION TRIM(IN-PATTERN)
+           PERFORM VARYING LS-INPUT-INDEX-RIGHT
+               FROM LS-INPUT-LENGTH BY -1
+               UNTIL LS-INPUT-INDEX-RIGHT = 0
+               SET LS-SUBSTRING TO
+                   IN-PATTERN(LS-INPUT-INDEX-RIGHT:LS-INPUT-LENGTH -
+                   LS-INPUT-INDEX-RIGHT + 1
+               )
+               SET LS-SUBSTRING-LENGTH TO LENGTH OF FUNCTION
+                   TRIM(LS-SUBSTRING
+               )
+               display "substring " ls-substring
+               PERFORM VARYING LS-INPUT-INDEX-LEFT FROM 1 BY 1 UNTIL
+                   LS-INPUT-INDEX-LEFT > LS-SUBSTRING-LENGTH
+                   PERFORM VARYING TOWEL-INDEX FROM 1 BY 1
+                       UNTIL TOWEL-INDEX > TOWELS-SIZE
+                       SET LS-SUBSTRING-LEFT TO LS-SUBSTRING(
+                           1:LS-INPUT-INDEX-LEFT
+                       )
+                       SET LS-SUBSTRING-RIGHT TO LS-SUBSTRING(
+                           LS-INPUT-INDEX-LEFT + 1:
+                           LS-SUBSTRING-LENGTH - LS-INPUT-INDEX-LEFT + 1
+                       )
+                       IF LS-SUBSTRING-LEFT = TOWEL(TOWEL-INDEX)
+                           AND LS-SUBSTRING-RIGHT NOT = SPACE
+                           display " split " function
+                           trim(LS-SUBSTRING-LEFT)
+                               ": " function trim(LS-SUBSTRING-RIGHT)
+
+                           CALL "GET-FROM-CACHE" USING
+                               CACHE-GRP
+                               LS-SUBSTRING-RIGHT
+                               LS-SUBSTRING-COUNT
+                               LS-CACHE-RESULT
+                           IF LS-CACHE-RESULT NOT = 0
+                               CALL "GET-POSSIBLE-PATTERN-COUNT" USING
+                                   TOWELS-GRP
+                                   LS-SUBSTRING-RIGHT
+                                   RETURNING LS-SUBSTRING-COUNT
+                               CALL "ADD-TO-CACHE" USING
+                                   CACHE-GRP
+                                   LS-SUBSTRING-RIGHT
+                                   LS-SUBSTRING-COUNT
+                                   LS-CACHE-RESULT
+                           END-IF
+                           display "  counted " ls-substring-count
+                           IF LS-SUBSTRING = IN-PATTERN
+                               ADD LS-SUBSTRING-COUNT
+                               TO LS-TOTAL-POSSIBLE-COUNT
+                           END-IF
+
+                       END-IF
+                   END-PERFORM
+               END-PERFORM
+
+
+
+           END-PERFORM
+
+           MOVE LS-TOTAL-POSSIBLE-COUNT TO RETURN-CODE
+           GOBACK.
+
+       END PROGRAM PROCESS-STRING.
+
+      *> ===============================================================
+      *> GET-POSSIBLE-PATTERN-COUNT.
+      *> Return the number of towel combinations possible to make this
+      *> pattern.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. GET-POSSIBLE-PATTERN-COUNT.
        ENVIRONMENT DIVISION.
        CONFIGURATION SECTION.
        REPOSITORY.
@@ -167,7 +261,7 @@
            GOBACK.
            PUSH-NEIGHBORS.
 
-       END PROGRAM IS-PATTERN-POSSIBLE.
+       END PROGRAM GET-POSSIBLE-PATTERN-COUNT.
 
       *> ===============================================================
       *> POP-STACK.
@@ -227,3 +321,64 @@
            MOVE 0 TO OUT-RESULT
            GOBACK.
        END FUNCTION PUSH-TO-STACK.
+
+      *> ===============================================================
+      *> GET-FROM-CACHE
+      *> Read an item from the cache.
+      *> Return 0 if the item was found, 1 otherwise.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. GET-FROM-CACHE.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "cache" IN "19".
+       01  IN-CACHE-KEY                    PIC X(100).
+       01  OUT-CACHE-VALUE                 PIC 9(6).
+       01  OUT-RESULT                      PIC 9(1).
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE
+           CACHE-GRP
+           IN-CACHE-KEY
+           OUT-CACHE-VALUE
+           OUT-RESULT.
+
+           SEARCH ALL CACHE-CALCS
+               AT END
+                   MOVE 1 TO OUT-RESULT
+               WHEN CACHE-KEY(CACHE-INDEX) = IN-CACHE-KEY
+                   MOVE CACHE-VALUE(CACHE-INDEX) TO OUT-CACHE-VALUE
+                   MOVE 0 TO OUT-RESULT
+
+           GOBACK.
+       END PROGRAM GET-FROM-CACHE.
+      *> ===============================================================
+      *> ADD-TO-CACHE
+      *> Add an item to the cache
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. ADD-TO-CACHE.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "cache" IN "19".
+       01  IN-CACHE-KEY                    PIC X(100).
+       01  IN-CACHE-VALUE                  PIC 9(6).
+       01  OUT-RESULT                      PIC 9(1).
+
+       PROCEDURE DIVISION USING
+           BY REFERENCE
+           CACHE-GRP
+           IN-CACHE-KEY
+           IN-CACHE-VALUE
+           OUT-RESULT.
+
+           ADD 1 TO CACHE-SIZE
+           SET CACHE-VALUE(CACHE-SIZE) TO IN-CACHE-VALUE
+           SET CACHE-KEY(CACHE-SIZE) TO IN-CACHE-KEY
+
+           SORT CACHE-CALCS
+           MOVE 0 TO OUT-RESULT
+           GOBACK.
+       END PROGRAM ADD-TO-CACHE.
