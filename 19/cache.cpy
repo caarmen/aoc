@@ -5,4 +5,4 @@
                ASCENDING KEY IS CACHE-KEY
                INDEXED BY CACHE-INDEX.
                10  CACHE-KEY                PIC X(100).
-               10  CACHE-VALUE              PIC 9(6).
+               10  CACHE-VALUE              PIC 9(16).

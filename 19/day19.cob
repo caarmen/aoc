@@ -35,8 +35,9 @@
        01  LS-LINE                   PIC X(3000).
        01  LS-TOWEL                  PIC X(10).
        01  LS-TOWEL-PTR              PIC 9(4).
-       01  LS-ITER-POSSIBLE-COUNT    PIC 9(6) VALUE 0.
-       01  LS-TOTAL-POSSIBLE-COUNT   PIC 9(6) VALUE 0.
+       01  LS-ITER-POSSIBLE-COUNT    PIC 9(16) VALUE 0.
+       01  LS-PART-1-COUNT           PIC 9(4) VALUE 0.
+       01  LS-PART-2-COUNT           PIC 9(16) VALUE 0.
        COPY "towel" IN "19".
 
        LINKAGE SECTION.
@@ -70,16 +71,20 @@
                                CALL "PROCESS-STRING" USING
                                    TOWELS-GRP
                                    LS-LINE
-                                   RETURNING LS-ITER-POSSIBLE-COUNT
+                                   LS-ITER-POSSIBLE-COUNT
                                ADD LS-ITER-POSSIBLE-COUNT TO
-                                   LS-TOTAL-POSSIBLE-COUNT
-                               display LS-ITER-POSSIBLE-COUNT ": "
+                                   LS-PART-2-COUNT
+                               IF LS-ITER-POSSIBLE-COUNT > 0
+                                   ADD 1 TO LS-PART-1-COUNT
+                               END-IF
+                               DISPLAY LS-ITER-POSSIBLE-COUNT ": "
                                    FUNCTION TRIM(LS-LINE)
                        END-EVALUATE
            END-PERFORM
            CLOSE FD-DATA
 
-           DISPLAY LS-TOTAL-POSSIBLE-COUNT " patterns are possible."
+           DISPLAY LS-PART-1-COUNT " patterns are possible."
+           DISPLAY LS-PART-2-COUNT " pattern combos are possible."
            .
        END PROGRAM PROCESS-FILE.
 
@@ -100,43 +105,67 @@
        01  LS-SUBSTRING-LEFT                PIC X(100).
        01  LS-SUBSTRING-RIGHT               PIC X(100).
        01  LS-SUBSTRING-LENGTH              PIC 9(3).
-       01  LS-SUBSTRING-SPLIT-COUNT         PIC 9(6).
-       01  LS-SUBSTRING-COUNT               PIC 9(6).
+       01  LS-SUBSTRING-SPLIT-COUNT         PIC 9(16).
+       01  LS-SUBSTRING-COUNT               PIC 9(16).
        01  LS-CACHE-RESULT                  PIC 9(1).
-       01  LS-TOTAL-POSSIBLE-COUNT          PIC 9(6) VALUE 0.
 
        LINKAGE SECTION.
        COPY "towel" IN "19".
-       01  IN-PATTERN                        PIC X(100).
+       01  IN-PATTERN                       PIC X(100).
+       01  OUT-RESULT                       PIC 9(16) VALUE 0.
        PROCEDURE DIVISION USING BY REFERENCE
            TOWELS-GRP
-           IN-PATTERN.
-      *>     display "pattern " in-pattern
+           IN-PATTERN
+           OUT-RESULT.
 
            SET CACHE-SIZE TO 0
            SET LS-INPUT-LENGTH TO LENGTH OF FUNCTION TRIM(IN-PATTERN)
            SET LS-SUBSTRING TO SPACE
            SET LS-SUBSTRING-COUNT TO 1
+
+      *> Add a special empty string substring to the cache, with a
+      *> cache value of 1. There is exactly 1 "combination" of towels
+      *> that can be mixed to form an empty string (no towels at all).
            CALL "ADD-TO-CACHE" USING
                CACHE-GRP
                LS-SUBSTRING
                LS-SUBSTRING-COUNT
                LS-CACHE-RESULT
+
+      *> Process our input string with progressively larger substrings
+      *> starting from the right.
+      *> For an IN-PATTERN of "rrbgbr", we'll process:
+      *> r
+      *> br
+      *> gbr
+      *> bgbr
+      *> rbgbr
+      *> rrbgbr <-- the whole IN-PATTERN
            PERFORM VARYING LS-INPUT-INDEX-RIGHT
                FROM LS-INPUT-LENGTH BY -1
                UNTIL LS-INPUT-INDEX-RIGHT = 0
                SET LS-SUBSTRING-COUNT TO 0
                SET LS-SUBSTRING-SPLIT-COUNT TO 0
+
+      *> Example: LS-SUBSTRING = gbr, for our 3rd iteration.
                SET LS-SUBSTRING TO
                    IN-PATTERN(LS-INPUT-INDEX-RIGHT:LS-INPUT-LENGTH -
                    LS-INPUT-INDEX-RIGHT + 1
                )
+      *> Example: LS-SUBSTRING-LENGTH = 3, for gbr
                SET LS-SUBSTRING-LENGTH TO LENGTH OF FUNCTION
-                   TRIM(LS-SUBSTRING
-               )
-      *>         display "substring " ls-substring
+                   TRIM(LS-SUBSTRING)
+      *> Now process our substring with progressively larger substrings
+      *> starting from the left.
+      *> For a LS-SUBSTRING of "gbr", we'll process:
+      *> g
+      *> gb
+      *> gbr <-- the whole substring
                PERFORM VARYING LS-INPUT-INDEX-LEFT FROM 1 BY 1 UNTIL
                    LS-INPUT-INDEX-LEFT > LS-SUBSTRING-LENGTH
+      *> Example: for our sub iteration number 2:
+      *>   LS-SUBSTRING-LEFT = gb
+      *>   LS-SUBSTRING-RIGHT = r
                    PERFORM VARYING TOWEL-INDEX FROM 1 BY 1
                        UNTIL TOWEL-INDEX > TOWELS-SIZE
                        SET LS-SUBSTRING-LEFT TO LS-SUBSTRING(
@@ -146,208 +175,40 @@
                            LS-INPUT-INDEX-LEFT + 1:
                            LS-SUBSTRING-LENGTH - LS-INPUT-INDEX-LEFT + 1
                        )
+      *> Check if "gb" matches one of the towels exactly, if so:
+      *>
+      *> The number of combos of our substring "gbr", which start with
+      *> the left part "gb" is equal to the number of combos 
+      *> which start with the right part, "r".
+      *> We should have the number of combos of the right part "r"
+      *> already in the cache, from previous iterations.
+
                        IF LS-SUBSTRING-LEFT = TOWEL(TOWEL-INDEX)
-      *>                     display " split " function
-      *>                         trim(LS-SUBSTRING-LEFT)
-      *>                         ": "
-      *>                         function trim(LS-SUBSTRING-RIGHT)
-
-
                            CALL "GET-FROM-CACHE" USING
                                CACHE-GRP
                                LS-SUBSTRING-RIGHT
                                LS-SUBSTRING-SPLIT-COUNT
                                LS-CACHE-RESULT
-                           if ls-cache-result = 0
-      *>                         display "  found '"
-      *>                             function trim(ls-substring-right) "'"
-      *>                             ls-substring-split-count
+                           IF LS-CACHE-RESULT = 0
                                ADD LS-SUBSTRING-SPLIT-COUNT TO
                                    LS-SUBSTRING-COUNT
-      *>                     else
-      *>                         display "  cache miss for '"
-      *>                             function trim(ls-substring-right) "'"
-
+                           ELSE
+                               DISPLAY "This shouldn't happen"
                        END-IF
                    END-PERFORM
                END-PERFORM
-      *>         display " add to cache '" 
-      *>             function trim(ls-substring) "' "
-      *>             ls-substring-count
                CALL "ADD-TO-CACHE" USING
                    CACHE-GRP
                    LS-SUBSTRING
                    LS-SUBSTRING-COUNT
                    LS-CACHE-RESULT
 
-
-
            END-PERFORM
 
-           MOVE LS-SUBSTRING-COUNT TO RETURN-CODE
+           MOVE LS-SUBSTRING-COUNT TO OUT-RESULT
            GOBACK.
 
        END PROGRAM PROCESS-STRING.
-
-      *> ===============================================================
-      *> GET-POSSIBLE-PATTERN-COUNT.
-      *> Return the number of towel combinations possible to make this
-      *> pattern.
-      *> ===============================================================
-       IDENTIFICATION DIVISION.
-       PROGRAM-ID. GET-POSSIBLE-PATTERN-COUNT.
-       ENVIRONMENT DIVISION.
-       CONFIGURATION SECTION.
-       REPOSITORY.
-           FUNCTION PUSH-TO-STACK
-           FUNCTION POP-STACK.
-
-       DATA DIVISION.
-       LOCAL-STORAGE SECTION.
-       01  LS-PATTERN-LENGTH                 PIC 9(3).
-       01  LS-PUSH-RESULT                    PIC 9(1).
-       01  LS-POP-RESULT                     PIC 9(1).
-       01  LS-TOWEL-PATTERN                  PIC X(100).
-       01  LS-NEXT-TOWEL-PATTERN             PIC X(100).
-       01  LS-NEXT-PATTERN-LENGTH            PIC 9(3).
-       01  LS-TOWEL-COMBO-MATCH-COUNT        PIC 9(6) VALUE 0.
-       COPY "stack" IN "19".
-
-       LINKAGE SECTION.
-       COPY "towel" IN "19".
-       01  IN-PATTERN                        PIC X(100).
-
-       PROCEDURE DIVISION USING BY REFERENCE
-           TOWELS-GRP
-           IN-PATTERN.
-           IF IN-PATTERN = SPACE
-               MOVE 1 TO RETURN-CODE
-               GOBACK
-           END-IF
-           PERFORM VARYING TOWEL-INDEX FROM 1 BY 1
-               UNTIL TOWEL-INDEX > TOWELS-SIZE
-               IF TOWEL(TOWEL-INDEX) = IN-PATTERN
-                   display "      found " function trim(in-pattern)
-                       " in towels"
-                   MOVE 1 TO RETURN-CODE
-                   GOBACK
-               END-IF
-           END-PERFORM
-           MOVE 0 TO RETURN-CODE
-           GOBACK
-
-           SET STACK-SIZE TO 0
-           SET LS-PATTERN-LENGTH TO LENGTH OF FUNCTION TRIM(IN-PATTERN)
-           SET LS-TOWEL-PATTERN TO SPACE
-           SET LS-PUSH-RESULT TO PUSH-TO-STACK(
-               LS-TOWEL-PATTERN,
-               STACK-GRP
-           )
-
-           PERFORM UNTIL STACK-SIZE = 0
-      *>         display space
-      *>         display "iteration"
-               SET LS-POP-RESULT TO POP-STACK(
-                   STACK-GRP,
-                   LS-TOWEL-PATTERN,
-               )
-      *>         display "popped " function trim(ls-towel-pattern)
-               PERFORM VARYING TOWEL-INDEX FROM 1 BY 1
-                   UNTIL TOWEL-INDEX > TOWELS-SIZE
-                   SET LS-NEXT-TOWEL-PATTERN TO SPACE
-                   STRING
-                       FUNCTION TRIM(LS-TOWEL-PATTERN)
-                       FUNCTION TRIM(TOWEL(TOWEL-INDEX))
-                       INTO LS-NEXT-TOWEL-PATTERN
-                   END-STRING
-                   SET LS-NEXT-PATTERN-LENGTH TO LENGTH OF
-                       FUNCTION TRIM(LS-NEXT-TOWEL-PATTERN)
-                   IF LS-NEXT-TOWEL-PATTERN = IN-PATTERN
-                       ADD 1 TO LS-TOWEL-COMBO-MATCH-COUNT
-                       EXIT PERFORM
-                   END-IF
-
-      *>             display function trim(ls-next-towel-pattern) " in "
-      *>                 function trim(in-pattern) " ? "
-      *>                 no advancing
-                   IF LS-NEXT-PATTERN-LENGTH <= LS-PATTERN-LENGTH
-                       AND IN-PATTERN(1:LS-NEXT-PATTERN-LENGTH) =
-                       LS-NEXT-TOWEL-PATTERN
-      *>                 display "yes"
-                       SET LS-PUSH-RESULT TO PUSH-TO-STACK(
-                           LS-NEXT-TOWEL-PATTERN,
-                           STACK-GRP
-                       )
-      *>             ELSE
-      *>                 display "no"
-                   END-IF
-               END-PERFORM
-           END-PERFORM
-
-           MOVE LS-TOWEL-COMBO-MATCH-COUNT TO RETURN-CODE
-           GOBACK.
-           PUSH-NEIGHBORS.
-
-       END PROGRAM GET-POSSIBLE-PATTERN-COUNT.
-
-      *> ===============================================================
-      *> POP-STACK.
-      *> Remove the last item of the stack.
-      *> Return 0 if an item was popped, 1 if the stack was empty.
-      *> ===============================================================
-       IDENTIFICATION DIVISION.
-       FUNCTION-ID. POP-STACK.
-
-       DATA DIVISION.
-       LINKAGE SECTION.
-       COPY "stack" IN "19".
-       01  OUT-TOWELS-PATTERN              PIC X(100).
-       01  OUT-RESULT                      PIC 9(1).
-
-       PROCEDURE DIVISION USING
-           BY REFERENCE
-           STACK-GRP
-           OUT-TOWELS-PATTERN
-           RETURNING OUT-RESULT
-           .
-
-           IF STACK-SIZE > 0
-               MOVE STACK-TOWELS-PATTERN(STACK-SIZE)
-                   TO OUT-TOWELS-PATTERN
-               COMPUTE STACK-SIZE = STACK-SIZE - 1
-               MOVE 0 TO OUT-RESULT
-           ELSE
-               MOVE 1 TO OUT-RESULT
-           END-IF
-           GOBACK.
-
-       END FUNCTION POP-STACK.
-
-      *> ===============================================================
-      *> PUSH-TO-STACK.
-      *> Add an item to the end of the stack
-      *> ===============================================================
-       IDENTIFICATION DIVISION.
-       FUNCTION-ID. PUSH-TO-STACK.
-
-       DATA DIVISION.
-       LINKAGE SECTION.
-       01  IN-TOWELS-PATTERN               PIC X(100).
-       COPY "stack" IN "19".
-       01  OUT-RESULT                      PIC 9(1).
-
-       PROCEDURE DIVISION USING
-           BY REFERENCE
-           IN-TOWELs-PATTERN
-           STACK-GRP
-           RETURNING OUT-RESULT.
-
-           ADD 1 TO STACK-SIZE
-           SET STACK-TOWELS-PATTERN(STACK-SIZE) TO IN-TOWELS-PATTERN
-
-           MOVE 0 TO OUT-RESULT
-           GOBACK.
-       END FUNCTION PUSH-TO-STACK.
 
       *> ===============================================================
       *> GET-FROM-CACHE
@@ -361,7 +222,7 @@
        LINKAGE SECTION.
        COPY "cache" IN "19".
        01  IN-CACHE-KEY                    PIC X(100).
-       01  OUT-CACHE-VALUE                 PIC 9(6).
+       01  OUT-CACHE-VALUE                 PIC 9(16).
        01  OUT-RESULT                      PIC 9(1).
 
        PROCEDURE DIVISION USING
@@ -380,6 +241,7 @@
 
            GOBACK.
        END PROGRAM GET-FROM-CACHE.
+
       *> ===============================================================
       *> ADD-TO-CACHE
       *> Add an item to the cache
@@ -391,7 +253,7 @@
        LINKAGE SECTION.
        COPY "cache" IN "19".
        01  IN-CACHE-KEY                    PIC X(100).
-       01  IN-CACHE-VALUE                  PIC 9(6).
+       01  IN-CACHE-VALUE                  PIC 9(16).
        01  OUT-RESULT                      PIC 9(1).
 
        PROCEDURE DIVISION USING
