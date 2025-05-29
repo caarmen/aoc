@@ -147,10 +147,10 @@
                            LS-SUBSTRING-LENGTH - LS-INPUT-INDEX-LEFT + 1
                        )
                        IF LS-SUBSTRING-LEFT = TOWEL(TOWEL-INDEX)
-                           display " split " function
-                               trim(LS-SUBSTRING-LEFT)
-                               ": "
-                               function trim(LS-SUBSTRING-RIGHT)
+      *>                     display " split " function
+      *>                         trim(LS-SUBSTRING-LEFT)
+      *>                         ": "
+      *>                         function trim(LS-SUBSTRING-RIGHT)
 
 
                            CALL "GET-FROM-CACHE" USING
@@ -159,44 +159,21 @@
                                LS-SUBSTRING-SPLIT-COUNT
                                LS-CACHE-RESULT
                            if ls-cache-result = 0
-                               display "  found '"
-                                   function trim(ls-substring-right) "'"
-                                   ls-substring-split-count
+      *>                         display "  found '"
+      *>                             function trim(ls-substring-right) "'"
+      *>                             ls-substring-split-count
                                ADD LS-SUBSTRING-SPLIT-COUNT TO
                                    LS-SUBSTRING-COUNT
-                           else
-                               display "  cache miss for '"
-                                   function trim(ls-substring-right) "'"
-      *>                     IF LS-CACHE-RESULT NOT = 0
-      *>                         display "   cache miss, "
-      *>                             "calculating for "
-      *>                             ls-substring-right
-      *>                         CALL "GET-POSSIBLE-PATTERN-COUNT"
-      *>                             USING
-      *>                             TOWELS-GRP
-      *>                             LS-SUBSTRING-RIGHT
-      *>                             RETURNING LS-SUBSTRING-SPLIT-COUNT
-      *>                         display "   add to cache "
-      *>                             function trim(ls-substring-right)
-      *>                             ": " ls-substring-split-count
-      *>                         CALL "ADD-TO-CACHE" USING
-      *>                             CACHE-GRP
-      *>                             LS-SUBSTRING-RIGHT
-      *>                             LS-SUBSTRING-SPLIT-COUNT
-      *>                             LS-CACHE-RESULT
-      *>                     END-IF
-      *>                     display "  counted " ls-substring-count
-      *>                     IF LS-SUBSTRING = IN-PATTERN
-      *>                         ADD LS-SUBSTRING-COUNT
-      *>                         TO LS-TOTAL-POSSIBLE-COUNT
-      *>                     END-IF
+      *>                     else
+      *>                         display "  cache miss for '"
+      *>                             function trim(ls-substring-right) "'"
 
                        END-IF
                    END-PERFORM
                END-PERFORM
-               display " add to cache '" 
-                   function trim(ls-substring) "' "
-                   ls-substring-count
+      *>         display " add to cache '" 
+      *>             function trim(ls-substring) "' "
+      *>             ls-substring-count
                CALL "ADD-TO-CACHE" USING
                    CACHE-GRP
                    LS-SUBSTRING
