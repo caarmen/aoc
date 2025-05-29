@@ -35,7 +35,8 @@
        01  LS-LINE                   PIC X(3000).
        01  LS-TOWEL                  PIC X(10).
        01  LS-TOWEL-PTR              PIC 9(4).
-       01  LS-POSSIBLE-COUNT         PIC 9(3) VALUE 0.
+       01  LS-ITER-POSSIBLE-COUNT    PIC 9(6) VALUE 0.
+       01  LS-TOTAL-POSSIBLE-COUNT   PIC 9(6) VALUE 0.
        COPY "towel" IN "19".
 
        LINKAGE SECTION.
@@ -69,23 +70,23 @@
                                CALL "IS-PATTERN-POSSIBLE" USING
                                    TOWELS-GRP
                                    LS-LINE
-                               IF RETURN-CODE = 1
-                                   ADD 1 TO LS-POSSIBLE-COUNT
-                                   display "Y: " FUNCTION TRIM(LS-LINE)
-                               ELSE
-                                   display "N: " FUNCTION TRIM(LS-LINE)
-                               END-IF
+                                   RETURNING LS-ITER-POSSIBLE-COUNT
+                               ADD LS-ITER-POSSIBLE-COUNT TO
+                                   LS-TOTAL-POSSIBLE-COUNT
+                               display LS-ITER-POSSIBLE-COUNT ": "
+                                   FUNCTION TRIM(LS-LINE)
                        END-EVALUATE
            END-PERFORM
            CLOSE FD-DATA
 
-           DISPLAY LS-POSSIBLE-COUNT " patterns are possible."
+           DISPLAY LS-TOTAL-POSSIBLE-COUNT " patterns are possible."
            .
        END PROGRAM PROCESS-FILE.
 
       *> ===============================================================
       *> IS-PATTERN-POSSIBLE.
-      *> Return 1 if the pattern is possible, 0 otherwise.
+      *> Return the number of towel combinations possible to make this
+      *> pattern.
       *> ===============================================================
        IDENTIFICATION DIVISION.
        PROGRAM-ID. IS-PATTERN-POSSIBLE.
@@ -103,6 +104,7 @@
        01  LS-TOWEL-PATTERN                  PIC X(100).
        01  LS-NEXT-TOWEL-PATTERN             PIC X(100).
        01  LS-NEXT-PATTERN-LENGTH            PIC 9(3).
+       01  LS-TOWEL-COMBO-MATCH-COUNT        PIC 9(6) VALUE 0.
        COPY "stack" IN "19".
 
        LINKAGE SECTION.
@@ -140,8 +142,8 @@
                    SET LS-NEXT-PATTERN-LENGTH TO LENGTH OF
                        FUNCTION TRIM(LS-NEXT-TOWEL-PATTERN)
                    IF LS-NEXT-TOWEL-PATTERN = IN-PATTERN
-                       MOVE 1 TO RETURN-CODE
-                       GOBACK
+                       ADD 1 TO LS-TOWEL-COMBO-MATCH-COUNT
+                       EXIT PERFORM
                    END-IF
 
       *>             display function trim(ls-next-towel-pattern) " in "
@@ -161,7 +163,7 @@
                END-PERFORM
            END-PERFORM
 
-           MOVE 0 TO RETURN-CODE
+           MOVE LS-TOWEL-COMBO-MATCH-COUNT TO RETURN-CODE
            GOBACK.
            PUSH-NEIGHBORS.
 
