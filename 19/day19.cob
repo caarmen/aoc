@@ -100,6 +100,7 @@
        01  LS-SUBSTRING-LEFT                PIC X(100).
        01  LS-SUBSTRING-RIGHT               PIC X(100).
        01  LS-SUBSTRING-LENGTH              PIC 9(3).
+       01  LS-SUBSTRING-SPLIT-COUNT         PIC 9(6).
        01  LS-SUBSTRING-COUNT               PIC 9(6).
        01  LS-CACHE-RESULT                  PIC 9(1).
        01  LS-TOTAL-POSSIBLE-COUNT          PIC 9(6) VALUE 0.
@@ -114,9 +115,18 @@
 
            SET CACHE-SIZE TO 0
            SET LS-INPUT-LENGTH TO LENGTH OF FUNCTION TRIM(IN-PATTERN)
+           SET LS-SUBSTRING TO SPACE
+           SET LS-SUBSTRING-COUNT TO 1
+           CALL "ADD-TO-CACHE" USING
+               CACHE-GRP
+               LS-SUBSTRING
+               LS-SUBSTRING-COUNT
+               LS-CACHE-RESULT
            PERFORM VARYING LS-INPUT-INDEX-RIGHT
                FROM LS-INPUT-LENGTH BY -1
                UNTIL LS-INPUT-INDEX-RIGHT = 0
+               SET LS-SUBSTRING-COUNT TO 0
+               SET LS-SUBSTRING-SPLIT-COUNT TO 0
                SET LS-SUBSTRING TO
                    IN-PATTERN(LS-INPUT-INDEX-RIGHT:LS-INPUT-LENGTH -
                    LS-INPUT-INDEX-RIGHT + 1
@@ -137,42 +147,67 @@
                            LS-SUBSTRING-LENGTH - LS-INPUT-INDEX-LEFT + 1
                        )
                        IF LS-SUBSTRING-LEFT = TOWEL(TOWEL-INDEX)
-                           AND LS-SUBSTRING-RIGHT NOT = SPACE
                            display " split " function
-                           trim(LS-SUBSTRING-LEFT)
-                               ": " function trim(LS-SUBSTRING-RIGHT)
+                               trim(LS-SUBSTRING-LEFT)
+                               ": "
+                               function trim(LS-SUBSTRING-RIGHT)
+
 
                            CALL "GET-FROM-CACHE" USING
                                CACHE-GRP
                                LS-SUBSTRING-RIGHT
-                               LS-SUBSTRING-COUNT
+                               LS-SUBSTRING-SPLIT-COUNT
                                LS-CACHE-RESULT
-                           IF LS-CACHE-RESULT NOT = 0
-                               CALL "GET-POSSIBLE-PATTERN-COUNT" USING
-                                   TOWELS-GRP
-                                   LS-SUBSTRING-RIGHT
-                                   RETURNING LS-SUBSTRING-COUNT
-                               CALL "ADD-TO-CACHE" USING
-                                   CACHE-GRP
-                                   LS-SUBSTRING-RIGHT
+                           if ls-cache-result = 0
+                               display "  found '"
+                                   function trim(ls-substring-right) "'"
+                                   ls-substring-split-count
+                               ADD LS-SUBSTRING-SPLIT-COUNT TO
                                    LS-SUBSTRING-COUNT
-                                   LS-CACHE-RESULT
-                           END-IF
-                           display "  counted " ls-substring-count
-                           IF LS-SUBSTRING = IN-PATTERN
-                               ADD LS-SUBSTRING-COUNT
-                               TO LS-TOTAL-POSSIBLE-COUNT
-                           END-IF
+                           else
+                               display "  cache miss for '"
+                                   function trim(ls-substring-right) "'"
+      *>                     IF LS-CACHE-RESULT NOT = 0
+      *>                         display "   cache miss, "
+      *>                             "calculating for "
+      *>                             ls-substring-right
+      *>                         CALL "GET-POSSIBLE-PATTERN-COUNT"
+      *>                             USING
+      *>                             TOWELS-GRP
+      *>                             LS-SUBSTRING-RIGHT
+      *>                             RETURNING LS-SUBSTRING-SPLIT-COUNT
+      *>                         display "   add to cache "
+      *>                             function trim(ls-substring-right)
+      *>                             ": " ls-substring-split-count
+      *>                         CALL "ADD-TO-CACHE" USING
+      *>                             CACHE-GRP
+      *>                             LS-SUBSTRING-RIGHT
+      *>                             LS-SUBSTRING-SPLIT-COUNT
+      *>                             LS-CACHE-RESULT
+      *>                     END-IF
+      *>                     display "  counted " ls-substring-count
+      *>                     IF LS-SUBSTRING = IN-PATTERN
+      *>                         ADD LS-SUBSTRING-COUNT
+      *>                         TO LS-TOTAL-POSSIBLE-COUNT
+      *>                     END-IF
 
                        END-IF
                    END-PERFORM
                END-PERFORM
+               display " add to cache '" 
+                   function trim(ls-substring) "' "
+                   ls-substring-count
+               CALL "ADD-TO-CACHE" USING
+                   CACHE-GRP
+                   LS-SUBSTRING
+                   LS-SUBSTRING-COUNT
+                   LS-CACHE-RESULT
 
 
 
            END-PERFORM
 
-           MOVE LS-TOTAL-POSSIBLE-COUNT TO RETURN-CODE
+           MOVE LS-SUBSTRING-COUNT TO RETURN-CODE
            GOBACK.
 
        END PROGRAM PROCESS-STRING.
@@ -208,6 +243,21 @@
        PROCEDURE DIVISION USING BY REFERENCE
            TOWELS-GRP
            IN-PATTERN.
+           IF IN-PATTERN = SPACE
+               MOVE 1 TO RETURN-CODE
+               GOBACK
+           END-IF
+           PERFORM VARYING TOWEL-INDEX FROM 1 BY 1
+               UNTIL TOWEL-INDEX > TOWELS-SIZE
+               IF TOWEL(TOWEL-INDEX) = IN-PATTERN
+                   display "      found " function trim(in-pattern)
+                       " in towels"
+                   MOVE 1 TO RETURN-CODE
+                   GOBACK
+               END-IF
+           END-PERFORM
+           MOVE 0 TO RETURN-CODE
+           GOBACK
 
            SET STACK-SIZE TO 0
            SET LS-PATTERN-LENGTH TO LENGTH OF FUNCTION TRIM(IN-PATTERN)
