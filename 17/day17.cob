@@ -13,6 +13,7 @@
        01  LS-OCTAL-STRING                PIC X(50).
        COPY "prog" IN "17".
        COPY "output" IN "17".
+       COPY "queue" IN "17".
 
        PROCEDURE DIVISION.
 
@@ -21,55 +22,79 @@
            CALL "PARSE-FILE" USING
                BY REFERENCE LS-FILE-PATH
                PROG-GRP
-           SET LS-OCTAL-STRING TO "5600137262102440"
-           CALL "FROM-OCTAL-STRING" USING
+           SET LS-OCTAL-STRING TO SPACE
+           CALL "ENQUEUE" USING
+               QUEUE-GRP
                LS-OCTAL-STRING
-               LS-INIt-REG-A
 
-           PERFORM 8 TIMES
+      *> Inspiration: https://www.youtube.com/watch?v=QpvAyg1RIYI
 
+           PERFORM UNTIL QUEUE-SIZE = 0
+               CALL "DEQUEUE" USING
+                   QUEUE-GRP
+                   LS-OCTAL-STRING
+               display "dequeued " ls-octal-string
+
+               STRING FUNCTION TRIM(LS-OCTAL-STRING) "0"
+                   INTO LS-OCTAL-STRING
+               END-STRING
+               PERFORM 8 TIMES
+
+                   CALL "FROM-OCTAL-STRING" USING
+                       LS-OCTAL-STRING
+                       LS-INIT-REG-A
 
       *> Display the a register we'll try now
 
-               SET PROG-REG-A TO LS-INIT-REG-A
-               CALL "TO-OCTAL-STRING" USING
-                   LS-INIT-REG-A
-                   LS-OCTAL-STRING
-               DISPLAY "[" FUNCTION TRIM(LS-OCTAL-STRING)
-                   "|" LS-INIT-REG-A "]" NO ADVANCING 
-               SET OUTPUT-SIZE TO 0
+                   SET PROG-REG-A TO LS-INIT-REG-A
+                   CALL "TO-OCTAL-STRING" USING
+                       LS-INIT-REG-A
+                       LS-OCTAL-STRING
+                   DISPLAY "[" FUNCTION TRIM(LS-OCTAL-STRING)
+                       "|" LS-INIT-REG-A "]" NO ADVANCING 
+                   SET OUTPUT-SIZE TO 0
 
-               CALL "RUN-PROGRAM" USING
-                   BY REFERENCE
-                   PROG-GRP
-                   OUTPUT-GRP
-                   RETURNING LS-PROGRAM-RESULT
+                   CALL "RUN-PROGRAM" USING
+                       BY REFERENCE
+                       PROG-GRP
+                       OUTPUT-GRP
+                       RETURNING LS-PROGRAM-RESULT
       *> Display the program
-               DISPLAY "[" NO ADVANCING
-               PERFORM VARYING PROG-INSTR-PTR FROM 1 BY 1
-                   UNTIL PROG-INSTR-PTR > PROG-SIZE
-                   DISPLAY PROG-ITEM(PROG-INSTR-PTR)
-                       NO ADVANCING
-               END-PERFORM
+                   DISPLAY "[" NO ADVANCING
+                   PERFORM VARYING PROG-INSTR-PTR FROM 1 BY 1
+                       UNTIL PROG-INSTR-PTR > PROG-SIZE
+                       DISPLAY PROG-ITEM(PROG-INSTR-PTR)
+                           NO ADVANCING
+                   END-PERFORM
       *> Display the output
-               DISPLAY "][" NO ADVANCING
-               PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
-                   UNTIL OUTPUT-INDEX > OUTPUT-SIZE
-                   DISPLAY OUTPUT-ITEM(OUTPUT-INDEX)
-                       NO ADVANCING
+                   DISPLAY "][" NO ADVANCING
+                   PERFORM VARYING OUTPUT-INDEX FROM 1 BY 1
+                       UNTIL OUTPUT-INDEX > OUTPUT-SIZE
+                       DISPLAY OUTPUT-ITEM(OUTPUT-INDEX)
+                           NO ADVANCING
+                   END-PERFORM
+                   DISPLAY "]"
+
+                   IF LS-PROGRAM-RESULT = 0
+                       DISPLAY "Self-generating program with "
+                       LS-INIT-REG-A "(" FUNCTION TRIM(LS-OCTAL-STRING)
+                           ")"
+                       DISPLAY "Register A: " PROG-REG-A
+                       DISPLAY "Register B: " PROG-REG-B
+                       DISPLAY "Register C: " PROG-REG-C
+                   END-IF
+                   IF OUTPUT-ITEM(1) =
+                       PROG-ITEMS(PROG-SIZE - OUTPUT-SIZE + 1)
+                       CALL "ENQUEUE" USING 
+                           QUEUE-GRP
+                           LS-OCTAL-STRING
+                   END-IF
+                   ADD 1 TO LS-INIT-REG-A
+                   CALL "TO-OCTAL-STRING" USING
+                       LS-INIT-REG-A
+                       LS-OCTAL-STRING
+
                END-PERFORM
-               DISPLAY "]"
-
-               IF LS-PROGRAM-RESULT = 0
-                   DISPLAY "Self-generating program with "
-                   LS-INIT-REG-A
-                   DISPLAY "Register A: " PROG-REG-A
-                   DISPLAY "Register B: " PROG-REG-B
-                   DISPLAY "Register C: " PROG-REG-C
-                   EXIT PERFORM
-               END-IF
-               ADD 1 TO LS-INIT-REG-A
-
            END-PERFORM
            .
        END PROGRAM DAY17.
@@ -371,7 +396,72 @@
                COMPUTE OUT-NUMBER = OUT-NUMBER + LS-DIGIT *(8**LS-POWER)
                ADD 1 TO LS-POWER
            END-PERFORM
-
-           display in-octal-string" -> " out-number
            GOBACK.
        END PROGRAM FROM-OCTAL-STRING.
+
+      *> ===============================================================
+      *> ENQUEUE.
+      *>
+      *> Return 0 if the item was enqueued, 1 otherwise.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. ENQUEUE.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "queue" IN "17".
+       01 IN-QUEUE-VALUE                     PIC X(50).
+
+       PROCEDURE DIVISION USING BY REFERENCE
+           QUEUE-GRP
+           IN-QUEUE-VALUE
+           .
+
+           IF QUEUE-SIZE = QUEUE-MAX-SIZE
+               DISPLAY "Queue full"
+               MOVE 1 TO RETURN-CODE
+               GOBACK
+           END-IF
+
+           ADD 1 TO QUEUE-SIZE
+           COMPUTE QUEUE-TAIL = FUNCTION MOD(QUEUE-TAIL + 1,
+               QUEUE-MAX-SIZE)
+
+           SET QUEUE-VALUE(QUEUE-TAIL) TO IN-QUEUE-VALUE
+
+           MOVE 0 TO RETURN-CODE
+           GOBACK.
+       END PROGRAM ENQUEUE.
+
+      *> ===============================================================
+      *> DEQUEUE.
+      *>
+      *> Return 0 if the item was dequeued, 1 otherwise.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DEQUEUE.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "queue" IN "17".
+       01 OUT-QUEUE-VALUE                      PIC X(50).
+
+       PROCEDURE DIVISION USING BY REFERENCE
+           QUEUE-GRP
+           OUT-QUEUE-VALUE.
+
+           IF QUEUE-SIZE = 0
+               DISPLAY "Queue empty"
+               MOVE 1 TO RETURN-CODE
+               GOBACK
+           END-IF
+
+           SET OUT-QUEUE-VALUE TO QUEUE-VALUE(QUEUE-HEAD)
+
+           SUBTRACT 1 FROM QUEUE-SIZE
+           COMPUTE QUEUE-HEAD = FUNCTION MOD(QUEUE-HEAD + 1,
+               QUEUE-MAX-SIZE)
+
+           MOVE 0 TO RETURN-CODE
+           GOBACK.
+       END PROGRAM DEQUEUE.
