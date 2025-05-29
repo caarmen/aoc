@@ -8,6 +8,7 @@
        01  LS-FILE-PATH              PIC X(30).
        01  LS-GRID-SIZE              PIC 9(2).
        01  LS-BLOCK-KEEP-COUNT       PIC 9(4).
+       01  LS-PROCESS-GRID-RESULT    PIC 9(1).
        COPY "grid" IN "18".
        COPY "block" IN "18".
 
@@ -18,7 +19,6 @@
            UNSTRING LS-COMMAND-LINE
                DELIMITED BY " " INTO
                LS-GRID-SIZE
-               LS-BLOCK-KEEP-COUNT
                LS-FILE-PATH
            END-UNSTRING
 
@@ -28,23 +28,35 @@
                LS-FILE-PATH
                BLOCKS-GRP
 
-           CALL "FILL-GRID" USING BY REFERENCE
-               GRID-GRP
-               BLOCKS-GRP
-               LS-BLOCK-KEEP-COUNT
 
-           CALL "DISPLAY-GRID" USING BY REFERENCE
-               GRID-GRP
+           PERFORM VARYING LS-BLOCK-KEEP-COUNT FROM 1 BY 1
+               UNTIL LS-BLOCK-KEEP-COUNT > BLOCKS-SIZE
 
-           display "----"
-           CALL "PROCESS-GRID" USING BY REFERENCE
-               GRID-GRP
-               BLOCKS-GRP
+               CALL "FILL-GRID" USING BY REFERENCE
+                   GRID-GRP
+                   BLOCKS-GRP
+                   LS-BLOCK-KEEP-COUNT
 
-           display "----"
-           CALL "DISPLAY-GRID" USING BY REFERENCE
-               GRID-GRP
+      *>     CALL "DISPLAY-GRID" USING BY REFERENCE
+      *>         GRID-GRP
 
+               DISPLAY "Iteration " LS-BLOCK-KEEP-COUNT
+                   " of " BLOCKS-SIZE " ("
+                   BLOCK-ROW(LS-BLOCK-KEEP-COUNT) ","
+                   BLOCK-COL(LS-BLOCK-KEEP-COUNT) "): "
+                   NO ADVANCING
+               CALL "PROCESS-GRID" USING BY REFERENCE
+                   GRID-GRP
+                   BLOCKS-GRP
+                   RETURNING LS-PROCESS-GRID-RESULT
+
+               IF LS-PROCESS-GRID-RESULT = 1
+                   DISPLAY "First blocking block is "
+                       BLOCK-ROW(LS-BLOCK-KEEP-COUNT) ","
+                       BLOCK-COL(Ls-BLOCK-KEEP-COUNT)
+                   EXIT PERFORM
+               END-IF
+           END-PERFORM
            .
        END PROGRAM DAY18.
 
@@ -113,6 +125,17 @@
            BLOCKS-GRP
            IN-BLOCK-KEEP-COUNT.
 
+           PERFORM VARYING GRID-ROW-INDEX FROM 1 BY 1
+               UNTIL GRID-ROW-INDEX > GRID-SIZE
+               PERFORM VARYING GRID-COL-INDEX FROM 1 BY 1
+                   UNTIL GRID-COL-INDEX > GRID-SIZE
+                   SET GRID-CELL(
+                       GRID-ROW-INDEX,
+                       GRID-COL-INDEX
+                   ) TO " "
+               END-PERFORM
+           END-PERFORM
+
            SET GRID-CELL(1, 1) TO "S"
            SET GRID-CELL(GRID-SIZE, GRID-SIZE) TO "E"
            PERFORM VARYING BLOCK-INDEX FROM 1 BY 1
@@ -128,6 +151,7 @@
 
       *> ===============================================================
       *> PROCESS-GRID.
+      *> Return 0 if we got to the end, 1 otherwise.
       *> ===============================================================
        IDENTIFICATION DIVISION.
        PROGRAM-ID. PROCESS-GRID.
@@ -176,10 +200,11 @@
                    LS-DIST
                IF LS-ROW = GRID-SIZE AND LS-COL = GRID-SIZE
                    DISPLAY "Reached exit " LS-DIST
-                   EXIT PERFORM
+                   MOVE 0 TO RETURN-CODE
+                   GOBACK
                END-IF
                SET GRID-CELL(LS-ROW, LS-COL) TO "O"
-      
+
                ADD 1 TO LS-DIST
       *> Check top neighbor
                COMPUTE LS-NEIGHBOR-ROW = LS-ROW - 1
@@ -198,8 +223,8 @@
                COMPUTE LS-NEIGHBOR-COL = LS-COL - 1
                PERFORM TRY-NEIGHBOR
            END-PERFORM
-               
 
+           MOVE 1 TO RETURN-CODE
            GOBACK.
 
            TRY-NEIGHBOR.
