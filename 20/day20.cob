@@ -4,19 +4,29 @@
        DATA DIVISION.
 
        LOCAL-STORAGE SECTION.
+       01  LS-COMMAND-LINE           PIC X(30).
+       01  LS-MAX-CHEAT-LENGTH       PIC 9(2).
+       01  LS-MIN-SAVED-TARGET       PIC 9(3).
        01  LS-FILE-PATH              PIC X(30).
+
        01  LS-FULL-PATH-LENGTH       PIC 9(5).
        01  LS-CHEAT-PATH-LENGTH      PIC 9(5).
        01  LS-PATH-SAVED             PIC 9(5).
        01  LS-CHEAT-PATH-START-INIT  PIC X(1).
        01  LS-CHEAT-PATH-END-INIT    PIC X(1).
-       01  LS-TOTAL-BIG-CHEATS       PIC 9(5) VALUE 0.
+       01  LS-TOTAL-BIG-CHEATS       PIC 9(9) VALUE 0.
        COPY "grid" IN "20".
        COPY "cheat" IN "20".
 
        PROCEDURE DIVISION.
 
-           ACCEPT LS-FILE-PATH FROM COMMAND-LINE
+           ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
+           UNSTRING LS-COMMAND-LINE DELIMITED BY " "
+               INTO
+               LS-MAX-CHEAT-LENGTH
+               LS-MIN-SAVED-TARGET
+               LS-FILE-PATH
+           END-UNSTRING
 
            CALL "PARSE-FILE" USING
                BY REFERENCE LS-FILE-PATH
@@ -36,18 +46,17 @@
            CALL "FIND-CHEATS" USING
                BY REFERENCE GRID-GRP
                CHEAT-GRP
+               LS-MAX-CHEAT-LENGTH
            DISPLAY "Found " CHEAT-SIZE " cheats."
 
            PERFORM VARYING CHEAT-INDEX FROM 1 BY 1
                UNTIL CHEAT-INDEX > CHEAT-SIZE
                IF CHEAT-DISTANCE-SAVED(CHEAT-INDEX) > 0
-                   DISPLAY CHEAT-START-ROW(CHEAT-INDEX) ","
-                       CHEAT-START-COL(CHEAT-INDEX) " -> "
-                       CHEAT-END-ROW(CHEAT-INDEX) ","
-                       CHEAT-END-COL(CHEAT-INDEX) ": "
+                   DISPLAY CHEAT-ID(CHEAT-INDEX) ": "
                        "Saved " CHEAT-DISTANCE-SAVED(CHEAT-INDEX)
                END-IF
-               IF CHEAT-DISTANCE-SAVED(CHEAT-INDEX) >= 100
+               IF CHEAT-DISTANCE-SAVED(CHEAT-INDEX) >=
+                   LS-MIN-SAVED-TARGET
                    ADD 1 TO LS-TOTAL-BIG-CHEATS
                END-IF
            END-PERFORM
@@ -126,18 +135,29 @@
        01  LS-PATH-NODE-PARENT-COL             PIC 9(3).
        01  LS-CHEAT-START-ROW                  PIC 9(3).
        01  LS-CHEAT-START-COL                  PIC 9(3).
-       01  LS-CHEAT-END-ROW                    PIC 9(3).
-       01  LS-CHEAT-END-COL                    PIC 9(3).
+       01  LS-CHEAT-END-ROW                    PIC S9(3).
+       01  LS-CHEAT-END-COL                    PIC S9(3).
 
-       01  LS-DIST-TO-CHEAT-START              PIC 9(5).
+       01  LS-DIST-TO-CHEAT-START              PIC S9(5).
        01  LS-DIST-FROM-CHEAT-END              PIC 9(5).
+
+       01  LS-DIAMOND-ROW-OFFSET               PIC S9(2).
+       01  LS-DIAMOND-COL-OFFSET               PIC S9(2).
+       01  LS-DIAMOND-ABS-MAX-COL              PIC 9(2).
+       01  LS-CHEAT-LENGTH                     PIC 9(2).
+       01  LS-CHEAT-DISTANCE-SAVED             PIC 9(5).
+
+       01  LS-CHEAT-ID                         PIC 9(12).
 
        LINKAGE SECTION.
        COPY "grid" IN "20".
        COPY "cheat" IN "20".
+       01  IN-MAX-CHEAT-LENGTH                 PIC 9(2).
        PROCEDURE DIVISION USING BY REFERENCE
            GRID-GRP
-           CHEAT-GRP.
+           CHEAT-GRP
+           IN-MAX-CHEAT-LENGTH.
+
 
       *> Proceed from the end, backward through the path, via parent
       *> cells.
@@ -154,39 +174,18 @@
                    EXIT PERFORM
                END-IF
 
-               IF GRID-CELL(
+               IF (GRID-CELL(
                    LS-PATH-NODE-ROW,
                    LS-PATH-NODE-COL
                ) = "." OR GRID-CELL(
                    LS-PATH-NODE-ROW,
                    LS-PATH-NODE-COL
-               ) = "S"
+               ) = "S")
 
       *> Look for possible cheats
-      *> Try up
-                   COMPUTE LS-CHEAT-START-ROW = LS-PATH-NODE-ROW - 1
-                   COMPUTE LS-CHEAT-START-COL = LS-PATH-NODE-COL
-                   COMPUTE LS-CHEAT-END-ROW = LS-PATH-NODE-ROW - 2
-                   COMPUTE LS-CHEAT-END-COL = LS-PATH-NODE-COL
-                   PERFORM ADD-CHEAT
-      *> Try right
                    COMPUTE LS-CHEAT-START-ROW = LS-PATH-NODE-ROW
-                   COMPUTE LS-CHEAT-START-COL = LS-PATH-NODE-COL + 1
-                   COMPUTE LS-CHEAT-END-ROW = LS-PATH-NODE-ROW
-                   COMPUTE LS-CHEAT-END-COL = LS-PATH-NODE-COL + 2
-                   PERFORM ADD-CHEAT
-      *> Try bottom
-                   COMPUTE LS-CHEAT-START-ROW = LS-PATH-NODE-ROW + 1
                    COMPUTE LS-CHEAT-START-COL = LS-PATH-NODE-COL
-                   COMPUTE LS-CHEAT-END-ROW = LS-PATH-NODE-ROW + 2
-                   COMPUTE LS-CHEAT-END-COL = LS-PATH-NODE-COL
-                   PERFORM ADD-CHEAT
-      *> Try left
-                   COMPUTE LS-CHEAT-START-ROW = LS-PATH-NODE-ROW
-                   COMPUTE LS-CHEAT-START-COL = LS-PATH-NODE-COL - 1
-                   COMPUTE LS-CHEAT-END-ROW = LS-PATH-NODE-ROW
-                   COMPUTE LS-CHEAT-END-COL = LS-PATH-NODE-COL - 2
-                   PERFORM ADD-CHEAT
+                   PERFORM EXPLORE-DIAMOND
                END-IF
 
       *> Go to the next parent
@@ -204,6 +203,57 @@
            END-PERFORM
            GOBACK.
 
+       EXPLORE-DIAMOND.
+      *> For a max cheat length of 4:
+      *>
+      *>             3210123
+      *>
+      *>           3    x
+      *>           2   xxx
+      *>           1  xxxxx
+      *>           0 xxx.xxx
+      *>           1  xxxxx
+      *>           2   xxx
+      *>           3    x
+      *>
+      *> We're at the "." in the middle.
+      *> We want to explore all the cheats which start from this "."
+      *> and end at one of the x's.
+      *> We calculate offsets relative to our position "."
+
+      *> LS-DIAMOND-ROW-OFFSET goes from -3 to 3.
+           COMPUTE LS-DIAMOND-ROW-OFFSET = - IN-MAX-CHEAT-LENGTH + 1
+           PERFORM UNTIL LS-DIAMOND-ROW-OFFSET = IN-MAX-CHEAT-LENGTH
+      *> In a given row, the absolute max column offset we can have is
+      *> 4 - row offset - 1.
+      *> So, if we're at row 2, columns will go from -1 to 1.
+               COMPUTE LS-DIAMOND-ABS-MAX-COL = IN-MAX-CHEAT-LENGTH
+                   - FUNCTION ABS(LS-DIAMOND-ROW-OFFSET) - 1
+               COMPUTE LS-DIAMOND-COL-OFFSET = - LS-DIAMOND-ABS-MAX-COL
+               PERFORM UNTIL LS-DIAMOND-COL-OFFSET >
+                   LS-DIAMOND-ABS-MAX-COL
+      *> Ignore the case of the center point.
+                   IF NOT (LS-DIAMOND-ROW-OFFSET = 0 AND
+                       LS-DIAMOND-COL-OFFSET = 0)
+      *> Set the end of the cheat to the absolute position of our
+      *> node ".", plus the offsets.
+                       COMPUTE LS-CHEAT-END-ROW = LS-CHEAT-START-ROW +
+                           LS-DIAMOND-ROW-OFFSET
+                       COMPUTE LS-CHEAT-END-COL = LS-CHEAT-START-COL +
+                           LS-DIAMOND-COL-OFFSET
+                       COMPUTE LS-CHEAT-ID =
+                           1000000000 * LS-CHEAT-START-ROW +
+                           1000000 * LS-CHEAT-START-COL +
+                           1000 * LS-CHEAT-END-ROW +
+                           LS-CHEAT-END-COL
+
+                       PERFORM ADD-CHEAT
+                   END-IF
+                   ADD 1 TO LS-DIAMOND-COL-OFFSET
+               END-PERFORM
+               ADD 1 TO LS-DIAMOND-ROW-OFFSET
+           END-PERFORM
+           .
        ADD-CHEAT.
 
       *> Check that we're within bounds
@@ -213,10 +263,9 @@
                AND LS-CHEAT-START-COL <= GRID-SIZE
                AND LS-CHEAT-END-ROW >= 1
                AND LS-CHEAT-END-ROW <= GRID-SIZE
-               AND LS-CHEAT-END-ROW >= 1
-               AND LS-CHEAT-END-ROW <= GRID-SIZE
-      *> Check that the start and end would go through
-      *> a wall and to an open cell
+               AND LS-CHEAT-END-COL >= 1
+               AND LS-CHEAT-END-COL <= GRID-SIZE
+      *> Check that the start and end would go to an open cell
                AND (
                    GRID-CELL(
                        LS-CHEAT-END-ROW,
@@ -227,25 +276,52 @@
                        LS-CHEAT-END-COL
                    ) = "E"
                )
+
+      *> The distance using this cheat is the sum of:
+      *>
+      *>  the distance from the global start to just before
+      *>     the cheat start,
+      *>
+      *>  + the distance of the cheat itself,
+      *>
+      *>  + the distance from just after the cheat end to
+      *>     the global end.
+
+      *>  the distance from the global start to just before
+      *>     the cheat start,
                COMPUTE LS-DIST-TO-CHEAT-START = GRID-FULL-PATH-LENGTH
                    - GRID-DIST-TO-END(
-                       LS-PATH-NODE-ROW
-                       LS-PATH-NODE-COL
+                       LS-CHEAT-START-ROW
+                       LS-CHEAT-START-COL
+                   ) - 1
+
+      *>  + the distance of the cheat itself,
+      *> The cheat length is the manhattan distance.
+               COMPUTE LS-CHEAT-LENGTH =
+                   FUNCTION ABS(
+                       LS-CHEAT-END-ROW - LS-CHEAT-START-ROW
                    )
+                   + FUNCTION ABS(
+                       LS-CHEAT-END-COL - LS-CHEAT-START-COL
+                   )
+                   + 1
+
+      *>  + the distance from just after the cheat end to
+      *>     the global end.
                COMPUTE LS-DIST-FROM-CHEAT-END = GRID-DIST-TO-END(
                    LS-CHEAT-END-ROW,
                    LS-CHEAT-END-COL
                )
-               IF LS-DIST-TO-CHEAT-START + LS-DIST-FROM-CHEAT-END + 2 <
-                   GRID-FULL-PATH-LENGTH
-                   ADD 1 TO CHEAT-SIZE
-                   COMPUTE CHEAT-DISTANCE-SAVED(CHEAT-SIZE) =
+      *> Only record the cheat if it actually helped us.
+               IF LS-DIST-TO-CHEAT-START + LS-DIST-FROM-CHEAT-END +
+                   LS-CHEAT-LENGTH < GRID-FULL-PATH-LENGTH
+                   COMPUTE LS-CHEAT-DISTANCE-SAVED =
                        GRID-FULL-PATH-LENGTH - LS-DIST-TO-CHEAT-START
-                       - LS-DIST-FROM-CHEAT-END - 2
-                   SET CHEAT-START-ROW(CHEAT-SIZE) TO LS-CHEAT-START-ROW
-                   SET CHEAT-START-COL(CHEAT-SIZE) TO LS-CHEAT-START-COL
-                   SET CHEAT-END-ROW(CHEAT-SIZE) TO LS-CHEAT-END-ROW
-                   SET CHEAT-END-COL(CHEAT-SIZE) TO LS-CHEAT-END-COL
+                       - LS-DIST-FROM-CHEAT-END - LS-CHEAT-LENGTH
+                   ADD 1 TO CHEAT-SIZE
+                   SET CHEAT-ID(CHEAT-SIZE) TO LS-CHEAT-ID
+                   SET CHEAT-DISTANCE-SAVED(CHEAT-SIZE)
+                       TO LS-CHEAT-DISTANCE-SAVED
                END-IF
 
            END-IF
