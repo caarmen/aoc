@@ -11,7 +11,7 @@
 +---+---+---+
     | 0 | A |
     +---+---+
-* Create a data structure for the numeric keypad:
+* Create a data structure for the directional keypad:
   - Grid of cells.
   - Current row/col, initially at the A position (4,3).
   - List of buttons pressed so far.
