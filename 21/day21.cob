@@ -6,24 +6,39 @@
        LOCAL-STORAGE SECTION.
        01  LS-FILE-PATH              PIC X(30).
        01  LS-TEST-SEQUENCE          PIC X(30).
+       01  LS-KP-IDX                 PIC 9(1) VALUE 1.
        COPY "keypad" IN "21".
 
        PROCEDURE DIVISION.
 
            ACCEPT LS-TEST-SEQUENCE FROM COMMAND-LINE
 
+      *> Init the first three directional keypads
+           PERFORM VARYING LS-KP-IDX FROM 1 BY 1 UNTIL
+               LS-KP-IDX > 3
+               CALL "INIT-DIRECTIONAL-KEYPAD" USING BY REFERENCE
+                   KP-GRP
+                   LS-KP-IDX
+           END-PERFORM
+
+      *> Init the last numeric keypad
+           SET LS-KP-IDX TO 4
            CALL "INIT-NUMERIC-KEYPAD" USING BY REFERENCE
                KP-GRP
+               LS-KP-IDX
 
            CALL "DISPLAY-NUMERIC-KEYPAD" USING BY REFERENCE
                KP-GRP
+               LS-KP-IDX
 
            CALL "USE-NUMERIC-KEYPAD-SEQUENCE" USING BY REFERENCE
                KP-GRP
+               LS-KP-IDX
                LS-TEST-SEQUENCE
 
            CALL "DISPLAY-NUMERIC-KEYPAD" USING BY REFERENCE
                KP-GRP
+               LS-KP-IDX
       *>     CALL "PARSE-FILE" USING
       *>         BY REFERENCE LS-FILE-PATH
            .
@@ -37,18 +52,21 @@
        DATA DIVISION.
        LINKAGE SECTION.
        COPY "keypad" IN "21".
+       01  IN-KP-IDX                 PIC 9(1) VALUE 1.
 
        PROCEDURE DIVISION USING BY REFERENCE
-           KP-GRP.
+           KP-GRP
+           IN-KP-IDX
+           .
 
-           SET KP-HEIGHT TO 4
-           MOVE "789" TO KP-ROWS(1)
-           MOVE "456" TO KP-ROWS(2)
-           MOVE "123" TO KP-ROWS(3)
-           MOVE " 0A" TO KP-ROWS(4)
-           SET KP-KEY-SEQUENCE-LENGTH TO 0
-           SET KP-CUR-ROW TO 4
-           SET KP-CUR-COL TO 3
+           SET KP-HEIGHT(IN-KP-IDX) TO 4
+           MOVE "789" TO KP-ROWS(IN-KP-IDX,1)
+           MOVE "456" TO KP-ROWS(IN-KP-IDX,2)
+           MOVE "123" TO KP-ROWS(IN-KP-IDX,3)
+           MOVE " 0A" TO KP-ROWS(IN-KP-IDX,4)
+           SET KP-KEY-SEQUENCE-LENGTH(IN-KP-IDX) TO 0
+           SET KP-CUR-ROW(IN-KP-IDX) TO 4
+           SET KP-CUR-COL(IN-KP-IDX) TO 3
 
            .
        END PROGRAM INIT-NUMERIC-KEYPAD.
@@ -61,16 +79,18 @@
        DATA DIVISION.
        LINKAGE SECTION.
        COPY "keypad" IN "21".
+       01  IN-KP-IDX                 PIC 9(1) VALUE 1.
 
        PROCEDURE DIVISION USING BY REFERENCE
-           KP-GRP.
+           KP-GRP
+           IN-KP-IDX.
 
-           SET KP-HEIGHT TO 2
-           MOVE " ^A" TO KP-ROWS(1)
-           MOVE "<v>" TO KP-ROWS(2)
-           SET KP-KEY-SEQUENCE-LENGTH TO 0
-           SET KP-CUR-ROW TO 1
-           SET KP-CUR-COL TO 3
+           SET KP-HEIGHT(IN-KP-IDX) TO 2
+           MOVE " ^A" TO KP-ROWS(IN-KP-IDX,1)
+           MOVE "<v>" TO KP-ROWS(IN-KP-IDX,2)
+           SET KP-KEY-SEQUENCE-LENGTH(IN-KP-IDX) TO 0
+           SET KP-CUR-ROW(IN-KP-IDX) TO 1
+           SET KP-CUR-COL(IN-KP-IDX) TO 3
 
            .
        END PROGRAM INIT-DIRECTIONAL-KEYPAD.
@@ -83,14 +103,22 @@
        DATA DIVISION.
        LINKAGE SECTION.
        COPY "keypad" IN "21".
+       01  IN-KP-IDX                 PIC 9(1) VALUE 1.
 
        PROCEDURE DIVISION USING BY REFERENCE
-           KP-GRP.
-           DISPLAY "@" KP-KEY(KP-CUR-ROW, KP-CUR-COL)
+           KP-GRP
+           IN-KP-IDX.
+           DISPLAY "@" KP-KEY(
+               IN-KP-IDX,
+               KP-CUR-ROW(IN-KP-IDX),
+               KP-CUR-COL(IN-KP-IDX)
+           )
            PERFORM VARYING KP-KEY-SEQUENCE-IDX FROM 1 BY 1
-               UNTIL KP-KEY-SEQUENCE-IDX > KP-KEY-SEQUENCE-LENGTH
-               DISPLAY KP-KEY-SEQUENCE-KEY(KP-KEY-SEQUENCE-IDX)
-                   NO ADVANCING
+               UNTIL KP-KEY-SEQUENCE-IDX >
+                   KP-KEY-SEQUENCE-LENGTH(IN-KP-IDX)
+               DISPLAY KP-KEY-SEQUENCE-KEY(
+                   IN-KP-IDX,KP-KEY-SEQUENCE-IDX
+               ) NO ADVANCING
            END-PERFORM
            DISPLAY SPACE
            .
@@ -112,10 +140,12 @@
        01  LS-SEQUENCE-IDX                         PIC 9(3).
        LINKAGE SECTION.
        COPY "keypad" IN "21".
+       01  IN-KP-IDX                 PIC 9(1) VALUE 1.
        01  IN-SEQUENCE                             PIC X(30).
 
        PROCEDURE DIVISION USING BY REFERENCE
            KP-GRP
+           IN-KP-IDX
            IN-SEQUENCE.
 
            SET LS-SEQUENCE-LENGTH TO LENGTH OF FUNCTION
@@ -126,6 +156,7 @@
 
                CALL "USE-NUMERIC-KEYPAD" USING BY REFERENCE
                    KP-GRP
+                   IN-KP-IDX
                    IN-SEQUENCE(LS-SEQUENCE-IDX:1)
                IF RETURN-CODE NOT = 0
                    DISPLAY "Invalid move at " LS-SEQUENCE-IDX "("
@@ -150,28 +181,36 @@
        01  LS-NEXT-COL                             PIC 9(1).
        LINKAGE SECTION.
        COPY "keypad" IN "21".
+       01  IN-KP-IDX                               PIC 9(1) VALUE 1.
        01  IN-ACTION                               PIC X(1).
 
        PROCEDURE DIVISION USING BY REFERENCE
            KP-GRP
+           IN-KP-IDX
            IN-ACTION.
 
-           SET LS-NEXT-ROW TO KP-CUR-ROW
-           SET LS-NEXT-COL TO KP-CUR-COL
+           SET LS-NEXT-ROW TO KP-CUR-ROW(IN-KP-IDX)
+           SET LS-NEXT-COL TO KP-CUR-COL(IN-KP-IDX)
            EVALUATE IN-ACTION
                WHEN "^"
-                   COMPUTE LS-NEXT-ROW = KP-CUR-ROW - 1
+                   COMPUTE LS-NEXT-ROW = KP-CUR-ROW(IN-KP-IDX)- 1
                WHEN ">"
-                   COMPUTE LS-NEXT-COL = KP-CUR-COL + 1
+                   COMPUTE LS-NEXT-COL = KP-CUR-COL(IN-KP-IDX)+ 1
                WHEN "<"
-                   COMPUTE LS-NEXT-COL = KP-CUR-COL - 1
+                   COMPUTE LS-NEXT-COL = KP-CUR-COL(IN-KP-IDX)- 1
                WHEN "v"
-                   COMPUTE LS-NEXT-ROW = KP-CUR-ROW + 1
+                   COMPUTE LS-NEXT-ROW = KP-CUR-ROW(IN-KP-IDX)+ 1
                WHEN "A"
       *> A button was pressed, add it to the sequence and exit.
-                   ADD 1 TO KP-KEY-SEQUENCE-LENGTH
-                   SET KP-KEY-SEQUENCE-KEY(KP-KEY-SEQUENCE-LENGTH)
-                       TO KP-KEY(KP-CUR-ROW, KP-CUR-COL)
+                   ADD 1 TO KP-KEY-SEQUENCE-LENGTH(IN-KP-IDX)
+                   SET KP-KEY-SEQUENCE-KEY(
+                       IN-KP-IDX,
+                       KP-KEY-SEQUENCE-LENGTH(IN-KP-IDX)
+                   ) TO KP-KEY(
+                       IN-KP-IDX,
+                       KP-CUR-ROW(IN-KP-IDX),
+                       KP-CUR-COL(IN-KP-IDX)
+                   )
                    MOVE 0 TO RETURN-CODE
                    GOBACK
            END-EVALUATE
@@ -180,7 +219,7 @@
       *> Make sure we're in the bounds:
            EVALUATE LS-NEXT-ROW ALSO LS-NEXT-COL
       *> Can't go above or below the keyboard
-               WHEN = 0 OR > KP-HEIGHT ALSO ANY
+               WHEN = 0 OR > KP-HEIGHT(IN-KP-IDX) ALSO ANY
                    DISPLAY "Off the keypad vertically"
                    MOVE 1 TO RETURN-CODE
                    GOBACK
@@ -193,12 +232,12 @@
                    GOBACK
            END-EVALUATE
       *> Make sure we're not on a gap
-           IF KP-KEY(LS-NEXT-ROW, LS-NEXT-COL) = " "
+           IF KP-KEY(IN-KP-IDX, LS-NEXT-ROW, LS-NEXT-COL) = " "
                MOVE 1 TO RETURN-CODE
            END-IF
       *> Valid key movement, move our position there.
-           SET KP-CUR-ROW TO LS-NEXT-ROW
-           SET KP-CUR-COL TO LS-NEXT-COL
+           SET KP-CUR-ROW(IN-KP-IDX) TO LS-NEXT-ROW
+           SET KP-CUR-COL(IN-KP-IDX) TO LS-NEXT-COL
            MOVE 0 TO RETURN-CODE
            .
        END PROGRAM USE-NUMERIC-KEYPAD.
