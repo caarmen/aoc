@@ -1,28 +1,28 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DAY21.
 
+       ENVIRONMENT DIVISION.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+           SELECT FD-DATA ASSIGN TO LS-FILE-PATH
+               ORGANIZATION IS LINE SEQUENTIAL.
+
        DATA DIVISION.
+       FILE SECTION.
+       FD  FD-DATA.
+       01  F-FILE-RECORD             PIC X(47).
 
        LOCAL-STORAGE SECTION.
-       01  LS-COMMAND-LINE           PIC X(100).
+       01  LS-LINE                   PIC X(100).
        01  LS-FILE-PATH              PIC X(30).
-       01  LS-TEST-SEQUENCE          PIC X(100).
-       01  LS-TEST-START-KP          PIC X(30).
        01  LS-KP-IDX                 PIC 9(1) VALUE 1.
-       01  LS-SHORTEST-INPUT-SEQUENCE PIC X(100).
-       01  LS-MODE                   PIC X(1).
+       01  LS-COMPLEXITY             PIC 9(6).
+       01  LS-TOTAL-COMPLEXITY       PIC 9(7) VALUE 0.
        COPY "keypad" IN "21".
 
        PROCEDURE DIVISION.
 
-           ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
-           UNSTRING LS-COMMAND-LINE
-               DELIMITED BY " "
-               INTO
-                   LS-MODE
-                   LS-TEST-START-KP
-                   LS-TEST-SEQUENCE
-           END-UNSTRING
+           ACCEPT LS-FILE-PATH FROM COMMAND-LINE
 
       *> Init the first three directional keypads
            PERFORM VARYING LS-KP-IDX FROM 1 BY 1 UNTIL
@@ -38,22 +38,22 @@
                KP-GRP
                LS-KP-IDX
 
-           EVALUATE LS-MODE
-               WHEN ">"
-                   CALL "USE-KEYPAD-SEQUENCE" USING BY REFERENCE
-                       KP-GRP
-                       LS-TEST-START-KP
-                       LS-TEST-SEQUENCE
-               WHEN "<"
-                   CALL "FIND-SHORTEST-INPUT-SEQUENCE" USING
-                       BY REFERENCE
-                       KP-GRP
-                       LS-TEST-START-KP
-                       LS-TEST-SEQUENCE
-                       LS-SHORTEST-INPUT-SEQUENCE
-                   DISPLAY "Shortest sequence: "
-                       LS-SHORTEST-INPUT-SEQUENCE
-           END-EVALUATE
+           OPEN INPUT FD-DATA
+           PERFORM UNTIL EXIT
+               READ FD-DATA INTO F-FILE-RECORD
+                   AT END
+                       EXIT PERFORM
+                   NOT AT END
+                       MOVE F-FILE-RECORD TO LS-LINE
+                       CALL "CALCULATE-COMPLEXITY" USING
+                           KP-GRP
+                           LS-LINE
+                           LS-COMPLEXITY
+                       ADD LS-COMPLEXITY TO LS-TOTAL-COMPLEXITY
+           END-PERFORM
+           DISPLAY "Total complexity: " LS-TOTAL-COMPLEXITY
+           CLOSE FD-DATA
+
 
 
            PERFORM VARYING LS-KP-IDX FROM 1 BY 1 UNTIL
@@ -183,7 +183,7 @@
            IN-SEQUENCE.
 
            SET LS-SEQUENCE-LENGTH TO LENGTH OF FUNCTION
-               TRIM(IN-SEQUENCE)
+           TRIM(IN-SEQUENCE)
 
            PERFORM VARYING LS-SEQUENCE-IDX FROM 1 BY 1
                UNTIL LS-SEQUENCE-IDX > LS-SEQUENCE-LENGTH
@@ -292,6 +292,61 @@
        END PROGRAM USE-KEYPAD.
 
       *> ===============================================================
+      *> CALCULATE-COMPLEXITY
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. CALCULATE-COMPLEXITY.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-KP-IDX                             PIC 9(1) VALUE 3.
+       01  LS-NEXT-TEST-SEQUENCE                 PIC X(100).
+       01  LS-SHORTEST-INPUT-SEQUENCE            PIC X(100).
+       LINKAGE SECTION.
+       COPY "keypad" IN "21".
+       01  IN-TARGET-SEQUENCE                    PIC X(100).
+       01  OUT-COMPLEXITY                        PIC 9(6).
+
+       PROCEDURE DIVISION USING BY REFERENCE
+           KP-GRP
+           IN-TARGET-SEQUENCE
+           OUT-COMPLEXITY.
+
+           display "calculate complexity '"
+           function trim(in-target-sequence) "'"
+           SET LS-NEXT-TEST-SEQUENCE TO IN-TARGET-SEQUENCE
+
+           PERFORM UNTIL LS-KP-IDX = 0
+               IF LS-KP-IDX < 3
+                   CALL "INIT-DIRECTIONAL-KEYPAD" USING
+                       BY REFERENCE
+                       KP-GRP
+                       LS-KP-IDX
+               END-IF
+               CALL "FIND-SHORTEST-INPUT-SEQUENCE" USING
+                   BY REFERENCE
+                   KP-GRP
+                   LS-KP-IDX
+                   LS-NEXT-TEST-SEQUENCE
+                   LS-SHORTEST-INPUT-SEQUENCE
+               DISPLAY "Shortest sequence: "
+                   LS-SHORTEST-INPUT-SEQUENCE
+                   " (" LENGTH OF FUNCTION TRIM(
+                   LS-SHORTEST-INPUT-SEQUENCE
+               ) ")"
+               SET LS-NEXT-TEST-SEQUENCE TO
+                   LS-SHORTEST-INPUT-SEQUENCE
+               ADD -1 TO LS-KP-IDX
+           END-PERFORM
+           COMPUTE OUT-COMPLEXITY =
+               LENGTH OF FUNCTION TRIM(
+                   LS-SHORTEST-INPUT-SEQUENCE
+               ) * FUNCTION NUMVAL(IN-TARGET-SEQUENCE)
+           DISPLAY "Complexity " OUT-COMPLEXITY
+
+           GOBACK.
+       END PROGRAM CALCULATE-COMPLEXITY.
+
+      *> ===============================================================
       *> FIND-SHORTEST-INPUT-SEQUENCE
       *> ===============================================================
        IDENTIFICATION DIVISION.
@@ -309,7 +364,7 @@
        01  LS-NEXT-ACTION                        PIC 9(1).
        01  LS-NEXT-SEQUENCE                      PIC X(100).
        01  LS-NEXT-ACTION-HIST                   PIC X(100).
-       COPY "queue" IN "21". 
+       COPY "queue" IN "21".
 
        LINKAGE SECTION.
        COPY "keypad" IN "21".
@@ -345,14 +400,14 @@
                LS-QUEUE-VALUE-SEQUENCE
                LS-QUEUE-VALUE-ACTION-HIST
 
-               display "dequeue. so far: "
-                   function trim(ls-total-sequence-so-far)
-                   ", action: " ls-queue-value-action
-                   ", seq: " function trim(ls-queue-value-sequence)
-                   ", act hist:"
-                   function trim(ls-queue-value-action-hist)
-                   ", key: " kp-key(in-kp-idx, ls-queue-value-row,
-                   ls-queue-value-col)
+      *>         display "dequeue. so far: "
+      *>             function trim(ls-total-sequence-so-far)
+      *>             ", action: " ls-queue-value-action
+      *>             ", seq: " function trim(ls-queue-value-sequence)
+      *>             ", act hist:"
+      *>             function trim(ls-queue-value-action-hist)
+      *>             ", key: " kp-key(in-kp-idx, ls-queue-value-row,
+      *>             ls-queue-value-col)
 
                IF LENGTH OF FUNCTION TRIM(LS-QUEUE-VALUE-SEQUENCE)
                    = LENGTH OF FUNCTION TRIM(LS-TOTAL-SEQUENCE-SO-FAR)
@@ -379,7 +434,6 @@
                            "A"
                            INTO OUT-SHORTEST-INPUT-SEQUENCE
                        END-STRING
-                       display "here!"
                        GOBACK
                    END-IF
       *> We found a substring:
@@ -407,7 +461,7 @@
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL + 1
                    SET LS-NEXT-ACTION TO ">"
                    PERFORM TRY-NEIGHBOR
-      *> Try bottom 
+      *> Try bottom
                    COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW + 1
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
                    SET LS-NEXT-ACTION TO "v"
