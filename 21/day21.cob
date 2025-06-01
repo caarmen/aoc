@@ -9,6 +9,8 @@
        01  LS-TEST-SEQUENCE          PIC X(100).
        01  LS-TEST-START-KP          PIC X(30).
        01  LS-KP-IDX                 PIC 9(1) VALUE 1.
+       01  LS-SHORTEST-INPUT-SEQUENCE PIC X(100).
+       01  LS-MODE                   PIC X(1).
        COPY "keypad" IN "21".
 
        PROCEDURE DIVISION.
@@ -16,7 +18,10 @@
            ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
            UNSTRING LS-COMMAND-LINE
                DELIMITED BY " "
-               INTO LS-TEST-START-KP LS-TEST-SEQUENCE
+               INTO
+                   LS-MODE
+                   LS-TEST-START-KP
+                   LS-TEST-SEQUENCE
            END-UNSTRING
 
       *> Init the first three directional keypads
@@ -33,14 +38,23 @@
                KP-GRP
                LS-KP-IDX
 
-           CALL "DISPLAY-KEYPAD" USING BY REFERENCE
-               KP-GRP
-               LS-KP-IDX
+           EVALUATE LS-MODE
+               WHEN ">"
+                   CALL "USE-KEYPAD-SEQUENCE" USING BY REFERENCE
+                       KP-GRP
+                       LS-TEST-START-KP
+                       LS-TEST-SEQUENCE
+               WHEN "<"
+                   CALL "FIND-SHORTEST-INPUT-SEQUENCE" USING
+                       BY REFERENCE
+                       KP-GRP
+                       LS-TEST-START-KP
+                       LS-TEST-SEQUENCE
+                       LS-SHORTEST-INPUT-SEQUENCE
+                   DISPLAY "Shortest sequence: "
+                       LS-SHORTEST-INPUT-SEQUENCE
+           END-EVALUATE
 
-           CALL "USE-KEYPAD-SEQUENCE" USING BY REFERENCE
-               KP-GRP
-               LS-TEST-START-KP
-               LS-TEST-SEQUENCE
 
            PERFORM VARYING LS-KP-IDX FROM 1 BY 1 UNTIL
                LS-KP-IDX > 3
@@ -276,6 +290,164 @@
            MOVE 0 TO RETURN-CODE
            .
        END PROGRAM USE-KEYPAD.
+
+      *> ===============================================================
+      *> FIND-SHORTEST-INPUT-SEQUENCE
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. FIND-SHORTEST-INPUT-SEQUENCE.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-QUEUE-VALUE-ROW                    PIC 9(1).
+       01  LS-QUEUE-VALUE-COL                    PIC 9(1).
+       01  LS-QUEUE-VALUE-ACTION                 PIC X(1).
+       01  LS-QUEUE-VALUE-SEQUENCE               PIC X(100).
+       01  LS-QUEUE-VALUE-ACTION-HIST            PIC X(100).
+       01  LS-TOTAL-SEQUENCE-SO-FAR              PIC X(100) VALUE SPACE.
+       01  LS-NEXT-ROW                           PIC 9(1).
+       01  LS-NEXT-COL                           PIC 9(1).
+       01  LS-NEXT-ACTION                        PIC 9(1).
+       01  LS-NEXT-SEQUENCE                      PIC X(100).
+       01  LS-NEXT-ACTION-HIST                   PIC X(100).
+       COPY "queue" IN "21". 
+
+       LINKAGE SECTION.
+       COPY "keypad" IN "21".
+       01  IN-KP-IDX                             PIC 9(1) VALUE 1.
+       01  IN-TARGET-SEQUENCE                    PIC X(100).
+       01  OUT-SHORTEST-INPUT-SEQUENCE           PIC X(100).
+
+       PROCEDURE DIVISION USING BY REFERENCE
+           KP-GRP
+           IN-KP-IDX
+           IN-TARGET-SEQUENCE
+           OUT-SHORTEST-INPUT-SEQUENCE.
+
+           SET LS-QUEUE-VALUE-ROW TO KP-CUR-ROW(IN-KP-IDX)
+           SET LS-QUEUE-VALUE-COL TO KP-CUR-COL(IN-KP-IDX)
+           SET LS-QUEUE-VALUE-ACTION TO SPACE
+           SET LS-QUEUE-VALUE-SEQUENCE TO SPACE
+           SET LS-QUEUE-VALUE-ACTION-HIST TO SPACE
+           CALL "ENQUEUE" USING
+               QUEUE-GRP
+               LS-QUEUE-VALUE-ROW
+               LS-QUEUE-VALUE-COL
+               LS-QUEUE-VALUE-ACTION
+               LS-QUEUE-VALUE-SEQUENCE
+               LS-QUEUE-VALUE-ACTION-HIST
+
+           PERFORM UNTIL QUEUE-SIZE = 0
+               CALL "DEQUEUE" USING
+               QUEUE-GRP
+               LS-QUEUE-VALUE-ROW
+               LS-QUEUE-VALUE-COL
+               LS-QUEUE-VALUE-ACTION
+               LS-QUEUE-VALUE-SEQUENCE
+               LS-QUEUE-VALUE-ACTION-HIST
+
+               display "dequeue. so far: "
+                   function trim(ls-total-sequence-so-far)
+                   ", action: " ls-queue-value-action
+                   ", seq: " function trim(ls-queue-value-sequence)
+                   ", act hist:"
+                   function trim(ls-queue-value-action-hist)
+                   ", key: " kp-key(in-kp-idx, ls-queue-value-row,
+                   ls-queue-value-col)
+
+               IF LENGTH OF FUNCTION TRIM(LS-QUEUE-VALUE-SEQUENCE)
+                   = LENGTH OF FUNCTION TRIM(LS-TOTAL-SEQUENCE-SO-FAR)
+
+                   STRING FUNCTION TRIM(LS-QUEUE-VALUE-SEQUENCE)
+                       KP-KEY(
+                           IN-KP-IDX,
+                           LS-QUEUE-VALUE-ROW,
+                           LS-QUEUE-VALUE-COL
+                       )
+                       INTO LS-NEXT-SEQUENCE
+                   END-STRING
+
+      *> We found the target sequence, done!
+                   STRING FUNCTION TRIM(LS-QUEUE-VALUE-ACTION-HIST)
+                       LS-QUEUE-VALUE-ACTION
+                       INTO LS-NEXT-ACTION-HIST
+                   END-STRING
+
+                   IF LS-NEXT-SEQUENCE = IN-TARGET-SEQUENCE
+                       STRING
+                           FUNCTION TRIM(LS-QUEUE-VALUE-ACTION-HIST)
+                           LS-QUEUE-VALUE-ACTION
+                           "A"
+                           INTO OUT-SHORTEST-INPUT-SEQUENCE
+                       END-STRING
+                       display "here!"
+                       GOBACK
+                   END-IF
+      *> We found a substring:
+                   STRING FUNCTION TRIM(LS-QUEUE-VALUE-ACTION-HIST)
+                       LS-QUEUE-VALUE-ACTION
+                       INTO LS-NEXT-ACTION-HIST
+                   END-STRING
+                   IF IN-TARGET-SEQUENCE(
+                       1:LENGTH OF FUNCTION TRIM(LS-NEXT-SEQUENCE)
+                   ) = LS-NEXT-SEQUENCE
+                       STRING FUNCTION TRIM(LS-NEXT-ACTION-HIST)
+                           "A"
+                           INTO LS-NEXT-ACTION-HIST
+                       END-STRING
+                       SET LS-TOTAL-SEQUENCE-SO-FAR TO LS-NEXT-SEQUENCE
+                   END-IF
+
+      *> Try up
+                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW - 1
+                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
+                   SET LS-NEXT-ACTION TO "^"
+                   PERFORM TRY-NEIGHBOR
+      *> Try right
+                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
+                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL + 1
+                   SET LS-NEXT-ACTION TO ">"
+                   PERFORM TRY-NEIGHBOR
+      *> Try bottom 
+                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW + 1
+                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
+                   SET LS-NEXT-ACTION TO "v"
+                   PERFORM TRY-NEIGHBOR
+      *> Try left
+                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
+                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL - 1
+                   SET LS-NEXT-ACTION TO "<"
+                   PERFORM TRY-NEIGHBOR
+      *> Try the same?
+                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
+                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
+                   SET LS-NEXT-ACTION TO " "
+                   PERFORM TRY-NEIGHBOR
+
+               END-IF
+
+
+           END-PERFORM
+
+           GOBACK.
+
+       TRY-NEIGHBOR.
+           IF LS-NEXT-ROW >= 1 AND LS-NEXT-ROW <= KP-HEIGHT(IN-KP-IDX)
+               AND LS-NEXT-COL >= 1 AND LS-NEXT-COL <= 3
+               AND KP-KEY(IN-KP-IDX, LS-NEXT-ROW, LS-NEXT-COL) NOT =
+               SPACE
+
+               CALL "ENQUEUE" USING BY REFERENCE
+                   QUEUE-GRP
+                   LS-NEXT-ROW
+                   LS-NEXT-COL
+                   LS-NEXT-ACTION
+                   LS-TOTAL-SEQUENCE-SO-FAR
+                   LS-NEXT-ACTION-HIST
+
+
+           END-IF
+           .
+       END PROGRAM FIND-SHORTEST-INPUT-SEQUENCE.
 
       *> ===============================================================
       *> PARSE-FILE.
