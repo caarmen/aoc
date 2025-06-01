@@ -1,4 +1,4 @@
-* Create a data structure for the numeric keypad:
+* ✅ Create a data structure for the numeric keypad:
   - Grid of cells.
   - Current row/col, initially at the A position (4,3).
   - List of buttons pressed so far.
@@ -23,7 +23,7 @@
 | < | v | > |
 +---+---+---+
 
-* Create a program USE-NUMERIC-KEYPAD:
+* ✅ Create a program USE-NUMERIC-KEYPAD:
   - Input:
     - a numeric keypad
     - an action (coming from a directional keypad): <,v,^,>, or A
@@ -42,7 +42,7 @@
         - append to the list of buttons pressed so far.
         - Send the value of the last row/col to the next keypad.
 
-* Create a program for debugging the numeric keypad: 
+* ✅ Create a program for debugging the numeric keypad: 
   - Name: USE-NUMERIC-KEYPAD-SEQUENCE.
   - Setup:
     - One numeric keypad.
