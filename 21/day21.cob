@@ -21,14 +21,14 @@
 
       *> Init the first three directional keypads
            PERFORM VARYING LS-KP-IDX FROM 1 BY 1 UNTIL
-               LS-KP-IDX > 3
+               LS-KP-IDX > 2
                CALL "INIT-DIRECTIONAL-KEYPAD" USING BY REFERENCE
                    KP-GRP
                    LS-KP-IDX
            END-PERFORM
 
       *> Init the last numeric keypad
-           SET LS-KP-IDX TO 4
+           SET LS-KP-IDX TO 3
            CALL "INIT-NUMERIC-KEYPAD" USING BY REFERENCE
                KP-GRP
                LS-KP-IDX
@@ -43,7 +43,7 @@
                LS-TEST-SEQUENCE
 
            PERFORM VARYING LS-KP-IDX FROM 1 BY 1 UNTIL
-               LS-KP-IDX > 4
+               LS-KP-IDX > 3
                CALL "DISPLAY-KEYPAD" USING BY REFERENCE
                    KP-GRP
                    LS-KP-IDX
