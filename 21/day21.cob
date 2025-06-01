@@ -117,6 +117,8 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DISPLAY-KEYPAD.
        DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-KEY-SEQUENCE-IDX       PIC 9(3).
        LINKAGE SECTION.
        COPY "keypad" IN "21".
        01  IN-KP-IDX                 PIC 9(1) VALUE 1.
@@ -130,11 +132,11 @@
                KP-CUR-ROW(IN-KP-IDX),
                KP-CUR-COL(IN-KP-IDX)
            )
-           PERFORM VARYING KP-KEY-SEQUENCE-IDX FROM 1 BY 1
-               UNTIL KP-KEY-SEQUENCE-IDX >
+           PERFORM VARYING LS-KEY-SEQUENCE-IDX FROM 1 BY 1
+               UNTIL LS-KEY-SEQUENCE-IDX >
                    KP-KEY-SEQUENCE-LENGTH(IN-KP-IDX)
                DISPLAY KP-KEY-SEQUENCE-KEY(
-                   IN-KP-IDX,KP-KEY-SEQUENCE-IDX
+                   IN-KP-IDX, LS-KEY-SEQUENCE-IDX
                ) NO ADVANCING
            END-PERFORM
            DISPLAY SPACE
@@ -192,11 +194,10 @@
       *> Returns 0 if the action was successful, 1 otherwise.
       *> ===============================================================
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. USE-KEYPAD.
+       PROGRAM-ID. USE-KEYPAD RECURSIVE.
        DATA DIVISION.
-       WORKING-STORAGE SECTION.
-       COPY "constants" IN "21".
        LOCAL-STORAGE SECTION.
+       COPY "constants" IN "21".
        01  LS-NEXT-KP-IDX                          PIC 9(1).
        01  LS-NEXT-ROW                             PIC 9(1).
        01  LS-NEXT-COL                             PIC 9(1).
