@@ -4,14 +4,20 @@
        DATA DIVISION.
 
        LOCAL-STORAGE SECTION.
+       01  LS-COMMAND-LINE           PIC X(100).
        01  LS-FILE-PATH              PIC X(30).
-       01  LS-TEST-SEQUENCE          PIC X(30).
+       01  LS-TEST-SEQUENCE          PIC X(100).
+       01  LS-TEST-START-KP          PIC X(30).
        01  LS-KP-IDX                 PIC 9(1) VALUE 1.
        COPY "keypad" IN "21".
 
        PROCEDURE DIVISION.
 
-           ACCEPT LS-TEST-SEQUENCE FROM COMMAND-LINE
+           ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
+           UNSTRING LS-COMMAND-LINE
+               DELIMITED BY " "
+               INTO LS-TEST-START-KP LS-TEST-SEQUENCE
+           END-UNSTRING
 
       *> Init the first three directional keypads
            PERFORM VARYING LS-KP-IDX FROM 1 BY 1 UNTIL
@@ -27,18 +33,22 @@
                KP-GRP
                LS-KP-IDX
 
-           CALL "DISPLAY-NUMERIC-KEYPAD" USING BY REFERENCE
+           CALL "DISPLAY-KEYPAD" USING BY REFERENCE
                KP-GRP
                LS-KP-IDX
 
-           CALL "USE-NUMERIC-KEYPAD-SEQUENCE" USING BY REFERENCE
+           CALL "USE-KEYPAD-SEQUENCE" USING BY REFERENCE
                KP-GRP
-               LS-KP-IDX
+               LS-TEST-START-KP
                LS-TEST-SEQUENCE
 
-           CALL "DISPLAY-NUMERIC-KEYPAD" USING BY REFERENCE
-               KP-GRP
-               LS-KP-IDX
+           PERFORM VARYING LS-KP-IDX FROM 1 BY 1 UNTIL
+               LS-KP-IDX > 4
+               CALL "DISPLAY-KEYPAD" USING BY REFERENCE
+                   KP-GRP
+                   LS-KP-IDX
+           END-PERFORM
+
       *>     CALL "PARSE-FILE" USING
       *>         BY REFERENCE LS-FILE-PATH
            .
@@ -50,6 +60,8 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. INIT-NUMERIC-KEYPAD.
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "constants" IN "21".
        LINKAGE SECTION.
        COPY "keypad" IN "21".
        01  IN-KP-IDX                 PIC 9(1) VALUE 1.
@@ -59,6 +71,7 @@
            IN-KP-IDX
            .
 
+           SET KP-TYPE(IN-KP-IDX) TO C-TYPE-NUMERIC
            SET KP-HEIGHT(IN-KP-IDX) TO 4
            MOVE "789" TO KP-ROWS(IN-KP-IDX,1)
            MOVE "456" TO KP-ROWS(IN-KP-IDX,2)
@@ -77,6 +90,8 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. INIT-DIRECTIONAL-KEYPAD.
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "constants" IN "21".
        LINKAGE SECTION.
        COPY "keypad" IN "21".
        01  IN-KP-IDX                 PIC 9(1) VALUE 1.
@@ -85,6 +100,7 @@
            KP-GRP
            IN-KP-IDX.
 
+           SET KP-TYPE(IN-KP-IDX) TO C-TYPE-DIRECTIONAL
            SET KP-HEIGHT(IN-KP-IDX) TO 2
            MOVE " ^A" TO KP-ROWS(IN-KP-IDX,1)
            MOVE "<v>" TO KP-ROWS(IN-KP-IDX,2)
@@ -96,10 +112,10 @@
        END PROGRAM INIT-DIRECTIONAL-KEYPAD.
 
       *> ===============================================================
-      *> DISPLAY-NUMERIC-KEYPAD.
+      *> DISPLAY-KEYPAD.
       *> ===============================================================
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. DISPLAY-NUMERIC-KEYPAD.
+       PROGRAM-ID. DISPLAY-KEYPAD.
        DATA DIVISION.
        LINKAGE SECTION.
        COPY "keypad" IN "21".
@@ -108,6 +124,7 @@
        PROCEDURE DIVISION USING BY REFERENCE
            KP-GRP
            IN-KP-IDX.
+           DISPLAY "Keypad #" IN-KP-IDX
            DISPLAY "@" KP-KEY(
                IN-KP-IDX,
                KP-CUR-ROW(IN-KP-IDX),
@@ -121,27 +138,28 @@
                ) NO ADVANCING
            END-PERFORM
            DISPLAY SPACE
+           DISPLAY "---"
            .
 
-       END PROGRAM DISPLAY-NUMERIC-KEYPAD.
+       END PROGRAM DISPLAY-KEYPAD.
 
       *> ===============================================================
-      *> USE-NUMERIC-KEYPAD-SEQUENCE.
+      *> USE-KEYPAD-SEQUENCE.
       *> Apply the sequence of actions, coming from a directional
-      *> keypad, to the numerical keypad.
+      *> keypad, to a numerical or directional keypad.
       *>
       *> Returns 0 if the action sequence was successful, 1 otherwise.
       *> ===============================================================
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. USE-NUMERIC-KEYPAD-SEQUENCE.
+       PROGRAM-ID. USE-KEYPAD-SEQUENCE.
        DATA DIVISION.
        LOCAL-STORAGE SECTION.
        01  LS-SEQUENCE-LENGTH                      PIC 9(3).
        01  LS-SEQUENCE-IDX                         PIC 9(3).
        LINKAGE SECTION.
        COPY "keypad" IN "21".
-       01  IN-KP-IDX                 PIC 9(1) VALUE 1.
-       01  IN-SEQUENCE                             PIC X(30).
+       01  IN-KP-IDX                               PIC 9(1) VALUE 1.
+       01  IN-SEQUENCE                             PIC X(100).
 
        PROCEDURE DIVISION USING BY REFERENCE
            KP-GRP
@@ -154,7 +172,7 @@
            PERFORM VARYING LS-SEQUENCE-IDX FROM 1 BY 1
                UNTIL LS-SEQUENCE-IDX > LS-SEQUENCE-LENGTH
 
-               CALL "USE-NUMERIC-KEYPAD" USING BY REFERENCE
+               CALL "USE-KEYPAD" USING BY REFERENCE
                    KP-GRP
                    IN-KP-IDX
                    IN-SEQUENCE(LS-SEQUENCE-IDX:1)
@@ -167,16 +185,19 @@
            END-PERFORM
            MOVE 0 TO RETURN-CODE.
 
-       END PROGRAM USE-NUMERIC-KEYPAD-SEQUENCE.
+       END PROGRAM USE-KEYPAD-SEQUENCE.
 
       *> ===============================================================
-      *> USE-NUMERIC-KEYPAD.
+      *> USE-KEYPAD.
       *> Returns 0 if the action was successful, 1 otherwise.
       *> ===============================================================
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. USE-NUMERIC-KEYPAD.
+       PROGRAM-ID. USE-KEYPAD.
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "constants" IN "21".
        LOCAL-STORAGE SECTION.
+       01  LS-NEXT-KP-IDX                          PIC 9(1).
        01  LS-NEXT-ROW                             PIC 9(1).
        01  LS-NEXT-COL                             PIC 9(1).
        LINKAGE SECTION.
@@ -189,6 +210,9 @@
            IN-KP-IDX
            IN-ACTION.
 
+           display "keypad #" in-kp-idx ", hit " in-action
+
+           COMPUTE LS-NEXT-KP-IDX = IN-KP-IDX + 1
            SET LS-NEXT-ROW TO KP-CUR-ROW(IN-KP-IDX)
            SET LS-NEXT-COL TO KP-CUR-COL(IN-KP-IDX)
            EVALUATE IN-ACTION
@@ -211,6 +235,16 @@
                        KP-CUR-ROW(IN-KP-IDX),
                        KP-CUR-COL(IN-KP-IDX)
                    )
+                   IF KP-TYPE(IN-KP-IDX) = C-TYPE-DIRECTIONAL
+      *> When a directional A key is pushed, we uhuh??
+                       CALL "USE-KEYPAD" USING BY REFERENCE
+                           KP-GRP
+                           LS-NEXT-KP-IDX
+                           KP-KEY(
+                               IN-KP-IDX,
+                               KP-CUR-ROW(IN-KP-IDX),
+                               KP-CUR-COL(IN-KP-IDX)
+                       )
                    MOVE 0 TO RETURN-CODE
                    GOBACK
            END-EVALUATE
@@ -240,7 +274,7 @@
            SET KP-CUR-COL(IN-KP-IDX) TO LS-NEXT-COL
            MOVE 0 TO RETURN-CODE
            .
-       END PROGRAM USE-NUMERIC-KEYPAD.
+       END PROGRAM USE-KEYPAD.
 
       *> ===============================================================
       *> PARSE-FILE.
