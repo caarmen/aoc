@@ -301,6 +301,23 @@
        01  LS-KP-IDX                             PIC 9(1) VALUE 3.
        01  LS-NEXT-TEST-SEQUENCE                 PIC X(100).
        01  LS-SHORTEST-INPUT-SEQUENCE            PIC X(100).
+       01  LS-TARGET-SEQUENCES-IDX               PIC 9(3).
+       01  LS-TARGET-SEQUENCES-GRP.
+           05  LS-TARGET-SEQUENCES-SIZE          PIC 9(3).
+           05  LS-TARGET-SEQUENCES
+               OCCURS 999 TIMES.
+               10  LS-TARGET-SEQUENCE            PIC X(100) VALUE SPACE.
+       01  LS-SHORTEST-INPUTS-IDX                PIC 9(3).
+       01  LS-SHORTEST-INPUTS-GRP.
+           05  LS-SHORTEST-INPUTS-SIZE           PIC 9(3).
+           05  LS-SHORTEST-INPUTS
+               OCCURS 999 TIMES.
+               10  LS-SHORTEST-INPUT             PIC X(100) VALUE SPACE.
+       01  LS-NEXT-TARGETS-GRP.
+           05  LS-NEXT-TARGETS-SIZE              PIC 9(3).
+           05  LS-NEXT-TARGETS
+               OCCURS 999 TIMES.
+               10  LS-NEXT-TARGET                PIC X(100) VALUE SPACE.
        LINKAGE SECTION.
        COPY "keypad" IN "21".
        01  IN-TARGET-SEQUENCE                    PIC X(100).
@@ -313,30 +330,66 @@
 
            display "calculate complexity '"
            function trim(in-target-sequence) "'"
-           SET LS-NEXT-TEST-SEQUENCE TO IN-TARGET-SEQUENCE
+           SET LS-TARGET-SEQUENCES-SIZE TO 1
+           SET LS-TARGET-SEQUENCE(1) TO IN-TARGET-SEQUENCE
 
-           PERFORM UNTIL LS-KP-IDX = 2
-               IF LS-KP-IDX < 3
-                   CALL "INIT-DIRECTIONAL-KEYPAD" USING
+           PERFORM UNTIL LS-KP-IDX = 1
+
+               DISPLAY SPACE
+               DISPLAY "Level " LS-KP-IDX
+               SET LS-NEXT-TARGETS-SIZE TO 0
+
+               PERFORM VARYING LS-TARGET-SEQUENCES-IDX FROM 1 BY 1
+                   UNTIL LS-TARGET-SEQUENCES-IDX >
+                       LS-TARGET-SEQUENCES-SIZE
+                   SET LS-NEXT-TEST-SEQUENCE TO
+                       LS-TARGET-SEQUENCE(LS-TARGET-SEQUENCES-IDX)
+
+                   IF LS-KP-IDX < 3
+                       CALL "INIT-DIRECTIONAL-KEYPAD" USING
+                           BY REFERENCE
+                           KP-GRP
+                           LS-KP-IDX
+                   END-IF
+                   CALL "FIND-SHORTEST-INPUT-SEQUENCE" USING
                        BY REFERENCE
                        KP-GRP
                        LS-KP-IDX
-               END-IF
-               CALL "FIND-SHORTEST-INPUT-SEQUENCE" USING
-                   BY REFERENCE
-                   KP-GRP
-                   LS-KP-IDX
-                   LS-NEXT-TEST-SEQUENCE
-                   LS-SHORTEST-INPUT-SEQUENCE
-               DISPLAY "Shortest sequence: "
-                   LS-SHORTEST-INPUT-SEQUENCE
-                   " (" LENGTH OF FUNCTION TRIM(
-                   LS-SHORTEST-INPUT-SEQUENCE
-               ) ")"
-               SET LS-NEXT-TEST-SEQUENCE TO
-                   LS-SHORTEST-INPUT-SEQUENCE
+                       LS-NEXT-TEST-SEQUENCE
+                       LS-SHORTEST-INPUTS-GRP
+
+                   DISPLAY "Shortest sequences for "
+                       function trim(ls-next-test-sequence) ": "
+                   PERFORM VARYING LS-SHORTEST-INPUTS-IDX FROM 1 BY 1
+                       UNTIL LS-SHORTEST-INPUTS-IDX >
+                       LS-SHORTEST-INPUTS-SIZE
+
+                       ADD 1 TO LS-NEXT-TARGETS-SIZE
+                       display  LS-SHORTEST-INPUT(
+                           LS-SHORTEST-INPUTS-IDX)
+                       MOVE LS-SHORTEST-INPUT(LS-SHORTEST-INPUTS-IDX)
+                           TO LS-NEXT-TARGET(LS-NEXT-TARGETS-SIZE)
+                   END-PERFORM
+               END-PERFORM
+               MOVE LS-NEXT-TARGETS-GRP TO LS-TARGET-SEQUENCES-GRP
                ADD -1 TO LS-KP-IDX
            END-PERFORM
+      *> Find the shortest input sequence now
+           SET LS-SHORTEST-INPUT-SEQUENCE TO SPACES
+           PERFORM VARYING LS-TARGET-SEQUENCES-IDX FROM 1 BY 1
+               UNTIL LS-TARGET-SEQUENCES-IDX >
+                   LS-TARGET-SEQUENCES-SIZE
+               IF LS-SHORTEST-INPUT-SEQUENCE = SPACES OR
+                   LENGTH OF FUNCTION TRIM(LS-SHORTEST-INPUT-SEQUENCE)
+                       > LS-TARGET-SEQUENCE(LS-TARGET-SEQUENCES-IDX)
+
+                   SET Ls-SHORTEST-INPUT-SEQUENCE TO
+                       LS-TARGET-SEQUENCE(LS-TARGET-SEQUENCES-IDX)
+               END-IF
+
+           END-PERFORM
+           DISPLAY "Shortest lowest level input sequence "
+               LS-SHORTEST-INPUT-SEQUENCE
            COMPUTE OUT-COMPLEXITY =
                LENGTH OF FUNCTION TRIM(
                    LS-SHORTEST-INPUT-SEQUENCE
@@ -356,15 +409,15 @@
        01  LS-QUEUE-VALUE-ROW                    PIC 9(1).
        01  LS-QUEUE-VALUE-COL                    PIC 9(1).
        01  LS-QUEUE-VALUE-MOV                    PIC X(1).
-       01  LS-QUEUE-VALUE-KEYPRESS-HIST          PIC X(5).
+       01  LS-QUEUE-VALUE-KEYPRESS-HIST          PIC X(100).
        01  LS-QUEUE-VALUE-MOV-HIST               PIC X(100).
        01  LS-NEXT-ROW                           PIC 9(1).
        01  LS-NEXT-COL                           PIC 9(1).
        01  LS-NEXT-MOV                           PIC X(1).
-       01  LS-NEXT-KEYPRESS-HIST                 PIC X(5).
+       01  LS-NEXT-KEYPRESS-HIST                 PIC X(100).
        01  LS-NEXT-MOV-HIST                      PIC X(100).
 
-       01  LS-NEXT-CANDIDATE-KEYPRESS-HIST       PIC X(5).
+       01  LS-NEXT-CANDIDATE-KEYPRESS-HIST       PIC X(100).
        01  LS-VISIT-RESULT                       PIC 9(1).
        COPY "queue" IN "21".
        COPY "visited" IN "21".
@@ -373,14 +426,22 @@
        COPY "keypad" IN "21".
        01  IN-KP-IDX                             PIC 9(1) VALUE 1.
        01  IN-TARGET-SEQUENCE                    PIC X(100).
-       01  OUT-SHORTEST-INPUT-SEQUENCE           PIC X(100).
+       01  OUT-SHORTEST-INPUTS-GRP.
+           05  OUT-SHORTEST-INPUTS-SIZE          PIC 9(3).
+           05  OUT-SHORTEST-INPUTS
+               OCCURS 999 TIMES.
+               10  OUT-SHORTEST-INPUT            PIC X(100).
 
        PROCEDURE DIVISION USING BY REFERENCE
            KP-GRP
            IN-KP-IDX
            IN-TARGET-SEQUENCE
-           OUT-SHORTEST-INPUT-SEQUENCE.
+           OUT-SHORTEST-INPUTS-GRP.
 
+           *>display "find-shortest-input-sequence for "
+      *>    in-target-sequence
+
+           SET OUT-SHORTEST-INPUTS-SIZE TO 0
            SET LS-QUEUE-VALUE-ROW TO KP-CUR-ROW(IN-KP-IDX)
            SET LS-QUEUE-VALUE-COL TO KP-CUR-COL(IN-KP-IDX)
            SET LS-QUEUE-VALUE-MOV TO SPACE
@@ -441,12 +502,16 @@
 
       *> We found the target sequence, done!
                IF LS-NEXT-CANDIDATE-KEYPRESS-HIST = IN-TARGET-SEQUENCE
+                   ADD 1 TO OUT-SHORTEST-INPUTS-SIZE
                    STRING
                        FUNCTION TRIM(LS-NEXT-MOV-HIST)
                        "A"
-                       INTO OUT-SHORTEST-INPUT-SEQUENCE
+                       INTO OUT-SHORTEST-INPUT(OUT-SHORTEST-INPUTS-SIZE)
                    END-STRING
-                   display "!!" OUT-SHORTEST-INPUT-SEQUENCE
+      *>             display "'"
+      *>                 FUNCTION TRIM(
+      *>                     OUT-SHORTEST-INPUT(OUT-SHORTEST-INPUTS-SIZE)
+      *>                 ) "'"
                ELSE
       *> We found a substring:
                    IF IN-TARGET-SEQUENCE(

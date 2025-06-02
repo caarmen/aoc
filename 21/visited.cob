@@ -10,7 +10,7 @@
        COPY "visited" IN "21".
        01  IN-ROW                           PIC 9(1).
        01  IN-COL                           PIC 9(1).
-       01  IN-KEYPRESS-HIST                 PIC X(5).
+       01  IN-KEYPRESS-HIST                 PIC X(100).
        01  IN-MOV-HIST                      PIC X(100).
        PROCEDURE DIVISION USING BY REFERENCE
            VISITED-GRP
@@ -46,6 +46,9 @@
                END-IF
            END-PERFORM
 
+           IF VISITED-SIZE = 9999999
+               DISPLAY "Max visited size"
+           END-IF
            ADD 1 TO VISITED-SIZE
            SET VISITED-ROW(VISITED-SIZE) TO IN-ROW
            SET VISITED-COL(VISITED-SIZE) TO IN-COL

@@ -12,7 +12,7 @@
        01 IN-QUEUE-VALUE-ROW                PIC 9(1).
        01 IN-QUEUE-VALUE-COL                PIC 9(1).
        01 IN-QUEUE-VALUE-MOV                PIC X(1).
-       01 IN-QUEUE-VALUE-KEYPRESS-HIST      PIC X(5).
+       01 IN-QUEUE-VALUE-KEYPRESS-HIST      PIC X(100).
        01 IN-QUEUE-VALUE-MOV-HIST           PIC X(100).
 
        PROCEDURE DIVISION USING BY REFERENCE
@@ -59,7 +59,7 @@
        01 OUT-QUEUE-VALUE-ROW                PIC 9(1).
        01 OUT-QUEUE-VALUE-COL                PIC 9(1).
        01 OUT-QUEUE-VALUE-MOV                PIC X(1).
-       01 OUT-QUEUE-VALUE-KEYPRESS-HIST      PIC X(5).
+       01 OUT-QUEUE-VALUE-KEYPRESS-HIST      PIC X(100).
        01 OUT-QUEUE-VALUE-MOV-HIST           PIC X(100).
 
        PROCEDURE DIVISION USING BY REFERENCE
