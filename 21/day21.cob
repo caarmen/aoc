@@ -421,12 +421,12 @@
                        INTO LS-NEXT-SEQUENCE
                    END-STRING
 
-      *> We found the target sequence, done!
                    STRING FUNCTION TRIM(LS-QUEUE-VALUE-ACTION-HIST)
                        LS-QUEUE-VALUE-ACTION
                        INTO LS-NEXT-ACTION-HIST
                    END-STRING
 
+      *> We found the target sequence, done!
                    IF LS-NEXT-SEQUENCE = IN-TARGET-SEQUENCE
                        STRING
                            FUNCTION TRIM(LS-QUEUE-VALUE-ACTION-HIST)
@@ -437,10 +437,6 @@
                        GOBACK
                    END-IF
       *> We found a substring:
-                   STRING FUNCTION TRIM(LS-QUEUE-VALUE-ACTION-HIST)
-                       LS-QUEUE-VALUE-ACTION
-                       INTO LS-NEXT-ACTION-HIST
-                   END-STRING
                    IF IN-TARGET-SEQUENCE(
                        1:LENGTH OF FUNCTION TRIM(LS-NEXT-SEQUENCE)
                    ) = LS-NEXT-SEQUENCE
