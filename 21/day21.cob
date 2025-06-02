@@ -410,13 +410,17 @@
                LS-QUEUE-VALUE-KEYPRESS-HIST
                LS-QUEUE-VALUE-MOV-HIST
 
+      *>         display space
       *>         display "dequeue:"
-      *>             " action: " ls-queue-value-action
-      *>             ", seq: " function trim(ls-queue-value-sequence)
-      *>             ", act hist:"
-      *>             function trim(ls-queue-value-action-hist)
       *>             ", key: " kp-key(in-kp-idx, ls-queue-value-row,
       *>             ls-queue-value-col)
+      *>             " mov: " ls-queue-value-mov
+      *>             ", keypress hist: "
+      *>             function trim(ls-queue-value-keypress-hist)
+      *>             ", mov hist:"
+      *>             function trim(ls-queue-value-mov-hist)
+
+               SET LS-NEXT-MOV-HIST TO SPACE
 
                SET LS-NEXT-KEYPRESS-HIST TO LS-QUEUE-VALUE-KEYPRESS-HIST
 
@@ -438,7 +442,7 @@
       *> We found the target sequence, done!
                IF LS-NEXT-CANDIDATE-KEYPRESS-HIST = IN-TARGET-SEQUENCE
                    STRING
-                       LS-NEXT-MOV-HIST
+                       FUNCTION TRIM(LS-NEXT-MOV-HIST)
                        "A"
                        INTO OUT-SHORTEST-INPUT-SEQUENCE
                    END-STRING
@@ -450,10 +454,14 @@
                            LS-NEXT-CANDIDATE-KEYPRESS-HIST)
                    ) = LS-NEXT-CANDIDATE-KEYPRESS-HIST
                        STRING
-                           LS-NEXT-MOV-HIST
+                           FUNCTION TRIM(LS-NEXT-MOV-HIST)
                            "A"
                            INTO LS-NEXT-MOV-HIST
                        END-STRING
+                       SET LS-NEXT-KEYPRESS-HIST TO
+                           LS-NEXT-CANDIDATE-KEYPRESS-HIST
+      *>             ELSE
+      *>                 display "Passing through"
                    END-IF
 
       *> Try up
@@ -503,8 +511,10 @@
                    RETURNING LS-VISIT-RESULT
 
                IF LS-VISIT-RESULT = 0
-      *>             display "visited " ls-next-row "," ls-next-col
-      *>             "," function trim(ls-next-action-hist)
+      *>             display "visited "
+      *>             kp-key(in-kp-idx,ls-next-row,ls-next-col)
+      *>             "," ls-next-mov
+      *>             "," function trim(ls-next-mov-hist)
                    CALL "ENQUEUE" USING BY REFERENCE
                        QUEUE-GRP
                        LS-NEXT-ROW
@@ -514,8 +524,9 @@
                        LS-NEXT-MOV-HIST
       *>         ELSE
       *>             display "already visited "
-      *>             ls-next-row "," ls-next-col
-      *>             "," function trim(ls-next-action-hist)
+      *>             kp-key(in-kp-idx,ls-next-row,ls-next-col)
+      *>             "," ls-next-mov
+      *>             "," function trim(ls-next-mov-hist)
                END-IF
 
 
