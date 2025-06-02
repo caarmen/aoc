@@ -6,6 +6,6 @@
            05  QUEUE-ARR OCCURS 9999 TIMES.
                10  QUEUE-VALUE-ROW                PIC 9(1).
                10  QUEUE-VALUE-COL                PIC 9(1).
-               10  QUEUE-VALUE-ACTION             PIC X(1).
-               10  QUEUE-VALUE-SEQUENCE           PIC X(100).
-               10  QUEUE-VALUE-ACTION-HIST        PIC X(100).
+               10  QUEUE-VALUE-MOV                PIC X(1).
+               10  QUEUE-VALUE-KEYPRESS-HIST      PIC X(5).
+               10  QUEUE-VALUE-MOV-HIST           PIC X(100).

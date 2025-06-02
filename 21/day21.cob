@@ -315,7 +315,7 @@
            function trim(in-target-sequence) "'"
            SET LS-NEXT-TEST-SEQUENCE TO IN-TARGET-SEQUENCE
 
-           PERFORM UNTIL LS-KP-IDX = 0
+           PERFORM UNTIL LS-KP-IDX = 2
                IF LS-KP-IDX < 3
                    CALL "INIT-DIRECTIONAL-KEYPAD" USING
                        BY REFERENCE
@@ -355,16 +355,19 @@
        LOCAL-STORAGE SECTION.
        01  LS-QUEUE-VALUE-ROW                    PIC 9(1).
        01  LS-QUEUE-VALUE-COL                    PIC 9(1).
-       01  LS-QUEUE-VALUE-ACTION                 PIC X(1).
-       01  LS-QUEUE-VALUE-SEQUENCE               PIC X(100).
-       01  LS-QUEUE-VALUE-ACTION-HIST            PIC X(100).
-       01  LS-TOTAL-SEQUENCE-SO-FAR              PIC X(100) VALUE SPACE.
+       01  LS-QUEUE-VALUE-MOV                    PIC X(1).
+       01  LS-QUEUE-VALUE-KEYPRESS-HIST          PIC X(5).
+       01  LS-QUEUE-VALUE-MOV-HIST               PIC X(100).
        01  LS-NEXT-ROW                           PIC 9(1).
        01  LS-NEXT-COL                           PIC 9(1).
-       01  LS-NEXT-ACTION                        PIC 9(1).
-       01  LS-NEXT-SEQUENCE                      PIC X(100).
-       01  LS-NEXT-ACTION-HIST                   PIC X(100).
+       01  LS-NEXT-MOV                           PIC X(1).
+       01  LS-NEXT-KEYPRESS-HIST                 PIC X(5).
+       01  LS-NEXT-MOV-HIST                      PIC X(100).
+
+       01  LS-NEXT-CANDIDATE-KEYPRESS-HIST       PIC X(5).
+       01  LS-VISIT-RESULT                       PIC 9(1).
        COPY "queue" IN "21".
+       COPY "visited" IN "21".
 
        LINKAGE SECTION.
        COPY "keypad" IN "21".
@@ -380,101 +383,106 @@
 
            SET LS-QUEUE-VALUE-ROW TO KP-CUR-ROW(IN-KP-IDX)
            SET LS-QUEUE-VALUE-COL TO KP-CUR-COL(IN-KP-IDX)
-           SET LS-QUEUE-VALUE-ACTION TO SPACE
-           SET LS-QUEUE-VALUE-SEQUENCE TO SPACE
-           SET LS-QUEUE-VALUE-ACTION-HIST TO SPACE
+           SET LS-QUEUE-VALUE-MOV TO SPACE
+           SET LS-QUEUE-VALUE-KEYPRESS-HIST TO SPACE
+           SET LS-QUEUE-VALUE-MOV-HIST TO SPACE
+
+           CALL "VISIT" USING
+               VISITED-GRP
+               LS-QUEUE-VALUE-ROW
+               LS-QUEUE-VALUE-COL
+               LS-QUEUE-VALUE-KEYPRESS-HIST
+               LS-QUEUE-VALUE-MOV-HIST
            CALL "ENQUEUE" USING
                QUEUE-GRP
                LS-QUEUE-VALUE-ROW
                LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-ACTION
-               LS-QUEUE-VALUE-SEQUENCE
-               LS-QUEUE-VALUE-ACTION-HIST
+               LS-QUEUE-VALUE-MOV
+               LS-QUEUE-VALUE-KEYPRESS-HIST
+               LS-QUEUE-VALUE-MOV-HIST
 
            PERFORM UNTIL QUEUE-SIZE = 0
                CALL "DEQUEUE" USING
                QUEUE-GRP
                LS-QUEUE-VALUE-ROW
                LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-ACTION
-               LS-QUEUE-VALUE-SEQUENCE
-               LS-QUEUE-VALUE-ACTION-HIST
+               LS-QUEUE-VALUE-MOV
+               LS-QUEUE-VALUE-KEYPRESS-HIST
+               LS-QUEUE-VALUE-MOV-HIST
 
-      *>         display "dequeue. so far: "
-      *>             function trim(ls-total-sequence-so-far)
-      *>             ", action: " ls-queue-value-action
+      *>         display "dequeue:"
+      *>             " action: " ls-queue-value-action
       *>             ", seq: " function trim(ls-queue-value-sequence)
       *>             ", act hist:"
       *>             function trim(ls-queue-value-action-hist)
       *>             ", key: " kp-key(in-kp-idx, ls-queue-value-row,
       *>             ls-queue-value-col)
 
-               IF LENGTH OF FUNCTION TRIM(LS-QUEUE-VALUE-SEQUENCE)
-                   = LENGTH OF FUNCTION TRIM(LS-TOTAL-SEQUENCE-SO-FAR)
+               SET LS-NEXT-KEYPRESS-HIST TO LS-QUEUE-VALUE-KEYPRESS-HIST
 
-                   STRING FUNCTION TRIM(LS-QUEUE-VALUE-SEQUENCE)
-                       KP-KEY(
-                           IN-KP-IDX,
-                           LS-QUEUE-VALUE-ROW,
-                           LS-QUEUE-VALUE-COL
-                       )
-                       INTO LS-NEXT-SEQUENCE
-                   END-STRING
+               STRING FUNCTION TRIM(LS-QUEUE-VALUE-MOV-HIST)
+                   LS-QUEUE-VALUE-MOV
+                   INTO LS-NEXT-MOV-HIST
+               END-STRING
 
-                   STRING FUNCTION TRIM(LS-QUEUE-VALUE-ACTION-HIST)
-                       LS-QUEUE-VALUE-ACTION
-                       INTO LS-NEXT-ACTION-HIST
-                   END-STRING
+
+               STRING FUNCTION TRIM(LS-QUEUE-VALUE-KEYPRESS-HIST)
+                   KP-KEY(
+                       IN-KP-IDX,
+                       LS-QUEUE-VALUE-ROW,
+                       LS-QUEUE-VALUE-COL
+                   )
+                   INTO LS-NEXT-CANDIDATE-KEYPRESS-HIST
+               END-STRING
 
       *> We found the target sequence, done!
-                   IF LS-NEXT-SEQUENCE = IN-TARGET-SEQUENCE
-                       STRING
-                           FUNCTION TRIM(LS-QUEUE-VALUE-ACTION-HIST)
-                           LS-QUEUE-VALUE-ACTION
-                           "A"
-                           INTO OUT-SHORTEST-INPUT-SEQUENCE
-                       END-STRING
-                       GOBACK
-                   END-IF
+               IF LS-NEXT-CANDIDATE-KEYPRESS-HIST = IN-TARGET-SEQUENCE
+                   STRING
+                       LS-NEXT-MOV-HIST
+                       "A"
+                       INTO OUT-SHORTEST-INPUT-SEQUENCE
+                   END-STRING
+                   display "!!" OUT-SHORTEST-INPUT-SEQUENCE
+               ELSE
       *> We found a substring:
                    IF IN-TARGET-SEQUENCE(
-                       1:LENGTH OF FUNCTION TRIM(LS-NEXT-SEQUENCE)
-                   ) = LS-NEXT-SEQUENCE
-                       STRING FUNCTION TRIM(LS-NEXT-ACTION-HIST)
+                       1:LENGTH OF FUNCTION TRIM(
+                           LS-NEXT-CANDIDATE-KEYPRESS-HIST)
+                   ) = LS-NEXT-CANDIDATE-KEYPRESS-HIST
+                       STRING
+                           LS-NEXT-MOV-HIST
                            "A"
-                           INTO LS-NEXT-ACTION-HIST
+                           INTO LS-NEXT-MOV-HIST
                        END-STRING
-                       SET LS-TOTAL-SEQUENCE-SO-FAR TO LS-NEXT-SEQUENCE
                    END-IF
 
       *> Try up
                    COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW - 1
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-ACTION TO "^"
+                   SET LS-NEXT-MOV TO "^"
                    PERFORM TRY-NEIGHBOR
       *> Try right
                    COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL + 1
-                   SET LS-NEXT-ACTION TO ">"
+                   SET LS-NEXT-MOV TO ">"
                    PERFORM TRY-NEIGHBOR
       *> Try bottom
                    COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW + 1
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-ACTION TO "v"
+                   SET LS-NEXT-MOV TO "v"
                    PERFORM TRY-NEIGHBOR
       *> Try left
                    COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL - 1
-                   SET LS-NEXT-ACTION TO "<"
+                   SET LS-NEXT-MOV TO "<"
                    PERFORM TRY-NEIGHBOR
       *> Try the same?
                    COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-ACTION TO " "
+                   SET LS-NEXT-MOV TO " "
                    PERFORM TRY-NEIGHBOR
 
                END-IF
-
 
            END-PERFORM
 
@@ -486,13 +494,30 @@
                AND KP-KEY(IN-KP-IDX, LS-NEXT-ROW, LS-NEXT-COL) NOT =
                SPACE
 
-               CALL "ENQUEUE" USING BY REFERENCE
-                   QUEUE-GRP
+               CALL "VISIT" USING
+                   VISITED-GRP
                    LS-NEXT-ROW
                    LS-NEXT-COL
-                   LS-NEXT-ACTION
-                   LS-TOTAL-SEQUENCE-SO-FAR
-                   LS-NEXT-ACTION-HIST
+                   LS-NEXT-KEYPRESS-HIST
+                   LS-NEXT-MOV-HIST
+                   RETURNING LS-VISIT-RESULT
+
+               IF LS-VISIT-RESULT = 0
+      *>             display "visited " ls-next-row "," ls-next-col
+      *>             "," function trim(ls-next-action-hist)
+                   CALL "ENQUEUE" USING BY REFERENCE
+                       QUEUE-GRP
+                       LS-NEXT-ROW
+                       LS-NEXT-COL
+                       LS-NEXT-MOV
+                       LS-NEXT-KEYPRESS-HIST
+                       LS-NEXT-MOV-HIST
+      *>         ELSE
+      *>             display "already visited "
+      *>             ls-next-row "," ls-next-col
+      *>             "," function trim(ls-next-action-hist)
+               END-IF
+
 
 
            END-IF
