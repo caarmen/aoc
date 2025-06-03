@@ -13,7 +13,10 @@
        01  F-FILE-RECORD             PIC X(47).
 
        LOCAL-STORAGE SECTION.
+       01  LS-COMMAND-LINE           PIC X(100).
+       01  LS-MODE                   PIC X(1).
        01  LS-LINE                   PIC X(100).
+       01  LS-INPUT                  PIC X(100).
        01  LS-FILE-PATH              PIC X(30).
        01  LS-KP-IDX                 PIC 9(1) VALUE 1.
        01  LS-COMPLEXITY             PIC 9(6).
@@ -22,7 +25,11 @@
 
        PROCEDURE DIVISION.
 
-           ACCEPT LS-FILE-PATH FROM COMMAND-LINE
+           ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
+           UNSTRING LS-COMMAND-LINE
+               INTO LS-MODE LS-INPUT
+           END-UNSTRING
+
 
       *> Init the first three directional keypads
            PERFORM VARYING LS-KP-IDX FROM 1 BY 1 UNTIL
@@ -37,6 +44,24 @@
            CALL "INIT-NUMERIC-KEYPAD" USING BY REFERENCE
                KP-GRP
                LS-KP-IDX
+
+           IF LS-MODE = ">"
+
+               SET LS-KP-IDX TO 1
+               CALL "USE-KEYPAD-SEQUENCE" USING
+                   KP-GRP
+                   LS-KP-IDX
+                   LS-INPUT
+               PERFORM VARYING LS-KP-IDX FROM 1 BY 1
+                   UNTIL LS-KP-IDX > 3
+                   CALL "DISPLAY-KEYPAD" USING BY REFERENCE
+                       KP-GRP
+                       LS-KP-IDX
+               END-PERFORm
+               GOBACK
+           END-IF
+
+           SET LS-FILE-PATH TO FUNCTION TRIM(LS-INPUT)
 
            OPEN INPUT FD-DATA
            PERFORM UNTIL EXIT
@@ -146,6 +171,7 @@
                KP-CUR-ROW(IN-KP-IDX),
                KP-CUR-COL(IN-KP-IDX)
            )
+           DISPLAY "Hit " KP-KEY-SEQUENCE-LENGTH(IN-KP-IDX) " keys."
            PERFORM VARYING LS-KEY-SEQUENCE-IDX FROM 1 BY 1
                UNTIL LS-KEY-SEQUENCE-IDX >
                    KP-KEY-SEQUENCE-LENGTH(IN-KP-IDX)
@@ -182,6 +208,8 @@
            IN-KP-IDX
            IN-SEQUENCE.
 
+           display "here " in-kp-idx ": "
+           kp-key-sequence-length(in-kp-idx)
            SET LS-SEQUENCE-LENGTH TO LENGTH OF FUNCTION
            TRIM(IN-SEQUENCE)
 

@@ -9,5 +9,5 @@
                10  KP-CUR-COL                      PIC 9(1) VALUE 3.
                10  KP-KEY-SEQUENCE.
                    15  KP-KEY-SEQUENCE-LENGTH      PIC 9(3) VALUE 0.
-                   15  KP-KEY-SEQUENCE-KEYS OCCURS 200 TIMES.
+                   15  KP-KEY-SEQUENCE-KEYS OCCURS 100 TIMES.
                        20  KP-KEY-SEQUENCE-KEY     PIC X(1).
