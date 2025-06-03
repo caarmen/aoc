@@ -447,7 +447,7 @@
        01  LS-NEXT-MOV                           PIC X(1).
        01  LS-NEXT-KEYPRESS-HIST                 PIC X(100).
        01  LS-NEXT-MOV-HIST                      PIC X(100).
-       01  LS-PREV-MOV                           PIC X(1).
+       01  LS-PREV-MOV                           PIC X(2).
        01  LS-IS-VALID-MOVE                      PIC 9(1).
 
        01  LS-NEXT-CANDIDATE-KEYPRESS-HIST       PIC X(100).
@@ -602,16 +602,16 @@
 
       *> Forbid some movements which we know are not optimal
                SET LS-PREV-MOV TO LS-NEXT-MOV-HIST(
-                       LENGTH OF FUNCTION TRIM(LS-NEXT-MOV-HIST):1
+                       LENGTH OF FUNCTION TRIM(LS-NEXT-MOV-HIST) - 1:2
                    )
                SET LS-IS-VALID-MOVE TO 1
                EVALUATE
                    LS-PREV-MOV
                    ALSO LS-NEXT-MOV
 
-                   WHEN "<" ALSO "^"
-                   WHEN "v" ALSO ">"
-                   WHEN "<" ALSO "v"
+                   WHEN "A<" ALSO "^"
+                   WHEN "Av" ALSO ">"
+                   WHEN "A<" ALSO "v"
                        SET LS-IS-VALID-MOVE TO 0
                END-EVALUATE
 
