@@ -27,6 +27,7 @@
 
            ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
            UNSTRING LS-COMMAND-LINE
+               DELIMITED BY SPACE
                INTO LS-MODE LS-INPUT
            END-UNSTRING
 
