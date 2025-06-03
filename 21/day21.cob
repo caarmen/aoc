@@ -333,7 +333,7 @@
            SET LS-TARGET-SEQUENCES-SIZE TO 1
            SET LS-TARGET-SEQUENCE(1) TO IN-TARGET-SEQUENCE
 
-           PERFORM UNTIL LS-KP-IDX = 1
+           PERFORM UNTIL LS-KP-IDX = 0
 
                DISPLAY SPACE
                DISPLAY "Level " LS-KP-IDX
@@ -394,7 +394,10 @@
                LENGTH OF FUNCTION TRIM(
                    LS-SHORTEST-INPUT-SEQUENCE
                ) * FUNCTION NUMVAL(IN-TARGET-SEQUENCE)
-           DISPLAY "Complexity " OUT-COMPLEXITY
+           DISPLAY "Complexity "  LENGTH OF FUNCTION TRIM(
+                   LS-SHORTEST-INPUT-SEQUENCE
+               ) "*" FUNCTION NUMVAL(IN-TARGET-SEQUENCE)
+               " = "OUT-COMPLEXITY
 
            GOBACK.
        END PROGRAM CALCULATE-COMPLEXITY.
@@ -416,6 +419,8 @@
        01  LS-NEXT-MOV                           PIC X(1).
        01  LS-NEXT-KEYPRESS-HIST                 PIC X(100).
        01  LS-NEXT-MOV-HIST                      PIC X(100).
+       01  LS-PREV-MOV                           PIC X(1).
+       01  LS-IS-VALID-MOVE                      PIC 9(1).
 
        01  LS-NEXT-CANDIDATE-KEYPRESS-HIST       PIC X(100).
        01  LS-VISIT-RESULT                       PIC 9(1).
@@ -567,31 +572,48 @@
                AND KP-KEY(IN-KP-IDX, LS-NEXT-ROW, LS-NEXT-COL) NOT =
                SPACE
 
-               CALL "VISIT" USING
-                   VISITED-GRP
-                   LS-NEXT-ROW
-                   LS-NEXT-COL
-                   LS-NEXT-KEYPRESS-HIST
-                   LS-NEXT-MOV-HIST
-                   RETURNING LS-VISIT-RESULT
+      *> Forbid some movements which we know are not optimal
+               SET LS-PREV-MOV TO LS-NEXT-MOV-HIST(
+                       LENGTH OF FUNCTION TRIM(LS-NEXT-MOV-HIST):1
+                   )
+               SET LS-IS-VALID-MOVE TO 1
+               EVALUATE
+                   LS-PREV-MOV
+                   ALSO LS-NEXT-MOV
 
-               IF LS-VISIT-RESULT = 0
+                   WHEN "<" ALSO "^"
+                   WHEN "v" ALSO ">"
+                   WHEN "<" ALSO "v"
+                       SET LS-IS-VALID-MOVE TO 0
+               END-EVALUATE
+
+               IF LS-IS-VALID-MOVE = 1
+                   CALL "VISIT" USING
+                       VISITED-GRP
+                       LS-NEXT-ROW
+                       LS-NEXT-COL
+                       LS-NEXT-KEYPRESS-HIST
+                       LS-NEXT-MOV-HIST
+                       RETURNING LS-VISIT-RESULT
+
+                   IF LS-VISIT-RESULT = 0
       *>             display "visited "
       *>             kp-key(in-kp-idx,ls-next-row,ls-next-col)
       *>             "," ls-next-mov
       *>             "," function trim(ls-next-mov-hist)
-                   CALL "ENQUEUE" USING BY REFERENCE
-                       QUEUE-GRP
-                       LS-NEXT-ROW
-                       LS-NEXT-COL
-                       LS-NEXT-MOV
-                       LS-NEXT-KEYPRESS-HIST
-                       LS-NEXT-MOV-HIST
+                       CALL "ENQUEUE" USING BY REFERENCE
+                           QUEUE-GRP
+                           LS-NEXT-ROW
+                           LS-NEXT-COL
+                           LS-NEXT-MOV
+                           LS-NEXT-KEYPRESS-HIST
+                           LS-NEXT-MOV-HIST
       *>         ELSE
       *>             display "already visited "
       *>             kp-key(in-kp-idx,ls-next-row,ls-next-col)
       *>             "," ls-next-mov
       *>             "," function trim(ls-next-mov-hist)
+                   END-IF
                END-IF
 
 
