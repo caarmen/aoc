@@ -253,6 +253,9 @@
            IN-KP-IDX
            IN-ACTION.
 
+           PERFORM IN-KP-IDX TIMES
+               DISPLAY SPACE NO ADVANCING
+           END-PERFORM
            display "keypad #" in-kp-idx ", hit " in-action
 
            COMPUTE LS-NEXT-KP-IDX = IN-KP-IDX + 1
