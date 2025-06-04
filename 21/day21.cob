@@ -545,6 +545,7 @@
                        "A"
                        INTO OUT-SHORTEST-INPUT(OUT-SHORTEST-INPUTS-SIZE)
                    END-STRING
+                   GOBACK
       *>             display "'"
       *>                 FUNCTION TRIM(
       *>                     OUT-SHORTEST-INPUT(OUT-SHORTEST-INPUTS-SIZE)
@@ -565,32 +566,32 @@
       *>             ELSE
       *>                 display "Passing through"
                    END-IF
-
-      *> Try up
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW - 1
+      *> Try bottom
+                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW + 1
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-MOV TO "^"
+                   SET LS-NEXT-MOV TO "v"
                    PERFORM TRY-NEIGHBOR
       *> Try right
                    COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL + 1
                    SET LS-NEXT-MOV TO ">"
                    PERFORM TRY-NEIGHBOR
-      *> Try bottom
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW + 1
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-MOV TO "v"
-                   PERFORM TRY-NEIGHBOR
       *> Try left
                    COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL - 1
                    SET LS-NEXT-MOV TO "<"
+                   PERFORM TRY-NEIGHBOR
+      *> Try up
+                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW - 1
+                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
+                   SET LS-NEXT-MOV TO "^"
                    PERFORM TRY-NEIGHBOR
       *> Try the same?
                    COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
                    COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
                    SET LS-NEXT-MOV TO " "
                    PERFORM TRY-NEIGHBOR
+
 
                END-IF
 
@@ -609,15 +610,17 @@
                        LENGTH OF FUNCTION TRIM(LS-NEXT-MOV-HIST) - 1:2
                    )
                SET LS-IS-VALID-MOVE TO 1
-               EVALUATE
-                   LS-PREV-MOV
-                   ALSO LS-NEXT-MOV
+               IF IN-KP-IDX = 3
+                   EVALUATE
+                       LS-PREV-MOV
+                       ALSO LS-NEXT-MOV
 
-                   WHEN "A<" ALSO "^"
-                   WHEN "Av" ALSO ">"
-                   WHEN "A<" ALSO "v"
-                       SET LS-IS-VALID-MOVE TO 0
-               END-EVALUATE
+                       WHEN "A<" ALSO "^"
+                       WHEN "Av" ALSO ">"
+                       WHEN "A<" ALSO "v"
+                           SET LS-IS-VALID-MOVE TO 0
+                   END-EVALUATE
+               END-IF
 
                IF LS-IS-VALID-MOVE = 1
                    CALL "VISIT" USING
