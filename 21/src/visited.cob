@@ -7,7 +7,7 @@
        PROGRAM-ID. VISIT.
        DATA DIVISION.
        LINKAGE SECTION.
-       COPY "visited" IN "21".
+       COPY "visited" IN "21/src".
        01  IN-ROW                           PIC 9(1).
        01  IN-COL                           PIC 9(1).
        01  IN-KEYPRESS-HIST                 PIC X(100).

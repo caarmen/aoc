@@ -8,7 +8,7 @@
 
        DATA DIVISION.
        LINKAGE SECTION.
-       COPY "queue" IN "21".
+       COPY "queue" IN "21/src".
        01 IN-QUEUE-VALUE-ROW                PIC 9(1).
        01 IN-QUEUE-VALUE-COL                PIC 9(1).
        01 IN-QUEUE-VALUE-MOV                PIC X(1).
@@ -55,7 +55,7 @@
 
        DATA DIVISION.
        LINKAGE SECTION.
-       COPY "queue" IN "21".
+       COPY "queue" IN "21/src".
        01 OUT-QUEUE-VALUE-ROW                PIC 9(1).
        01 OUT-QUEUE-VALUE-COL                PIC 9(1).
        01 OUT-QUEUE-VALUE-MOV                PIC X(1).
