@@ -83,15 +83,15 @@
                    CLOSE FD-DATA
 
                WHEN "?"
-                   SET LS-KP-IDX TO 2
-                   SET KP-CUR-ROW(LS-KP-IDX) TO LS-INPUT(1:1)
-                   SET KP-CUR-COL(LS-KP-IDX) TO LS-INPUT(2:1)
+                   SET LS-KP-IDX TO LS-INPUT(1:1)
+                   SET KP-CUR-ROW(LS-KP-IDX) TO LS-INPUT(2:1)
+                   SET KP-CUR-COL(LS-KP-IDX) TO LS-INPUT(3:1)
                    CALL "FIND-SHORTEST-INPUT-STEP" USING
                        KP-GRP
                        LS-KP-IDX
-                       LS-INPUT(3:1)
+                       LS-INPUT(4:1)
                        LS-SHORTEST-SEQUENCE
-                   DISPLAY LS-SHORTEST-SEQUENCE
+                   DISPLAY "Shortest: " LS-SHORTEST-SEQUENCE
 
            END-EVALUATE
 
@@ -424,14 +424,11 @@
        LOCAL-STORAGE SECTION.
        01  LS-QUEUE-VALUE-ROW                    PIC 9(1).
        01  LS-QUEUE-VALUE-COL                    PIC 9(1).
-       01  LS-QUEUE-VALUE-MOV                    PIC X(1).
        01  LS-QUEUE-VALUE-MOV-HIST               PIC X(100).
        01  LS-NEXT-ROW                           PIC 9(1).
        01  LS-NEXT-COL                           PIC 9(1).
        01  LS-NEXT-MOV                           PIC X(1).
        01  LS-NEXT-MOV-HIST                      PIC X(100).
-       01  LS-PREV-MOV                           PIC X(2).
-       01  LS-IS-VALID-MOVE                      PIC 9(1).
 
        01  LS-VISIT-RESULT                       PIC 9(1).
        COPY "queuestep" IN "21/src".
@@ -452,7 +449,6 @@
            SET OUT-SHORTEST-INPUT TO SPACE
            SET LS-QUEUE-VALUE-ROW TO KP-CUR-ROW(IN-KP-IDX)
            SET LS-QUEUE-VALUE-COL TO KP-CUR-COL(IN-KP-IDX)
-           SET LS-QUEUE-VALUE-MOV TO SPACE
            SET LS-QUEUE-VALUE-MOV-HIST TO SPACE
 
            CALL "VISIT-STEP" USING
@@ -464,7 +460,6 @@
                QUEUE-GRP
                LS-QUEUE-VALUE-ROW
                LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-MOV
                LS-QUEUE-VALUE-MOV-HIST
 
            PERFORM UNTIL QUEUE-SIZE = 0
@@ -472,24 +467,26 @@
                QUEUE-GRP
                LS-QUEUE-VALUE-ROW
                LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-MOV
                LS-QUEUE-VALUE-MOV-HIST
 
-               SET LS-NEXT-MOV-HIST TO SPACE
-
-               STRING FUNCTION TRIM(LS-QUEUE-VALUE-MOV-HIST)
-                   LS-QUEUE-VALUE-MOV
-                   INTO LS-NEXT-MOV-HIST
-               END-STRING
+               display "dequeue key [" ls-queue-value-row ","
+                   ls-queue-value-col "]="
+                   KP-KEY(
+                       IN-KP-IDX
+                       LS-QUEUE-VALUE-ROW
+                       LS-QUEUE-VALUE-COL
+                   ) ", already moved "
+                   function trim(ls-queue-value-mov-hist)
 
       *> We found the target sequence, done!
 
-               IF LS-QUEUE-VALUE-MOV = IN-TARGET-MOV
-                   STRING
-                       FUNCTION TRIM(LS-NEXT-MOV-HIST)
-                       "A"
-                       INTO OUT-SHORTEST-INPUT
-                   END-STRING
+               IF KP-KEY(
+                   IN-KP-IDX
+                   LS-QUEUE-VALUE-ROW
+                   LS-QUEUE-VALUE-COL
+               ) = IN-TARGET-MOV
+                   MOVE LS-QUEUE-VALUE-MOV-HIST TO OUT-SHORTEST-INPUT
+
                    GOBACK
                ELSE
       *> Try bottom
@@ -530,10 +527,10 @@
                AND KP-KEY(IN-KP-IDX, LS-NEXT-ROW, LS-NEXT-COL) NOT =
                SPACE
 
-               SET LS-PREV-MOV TO LS-NEXT-MOV-HIST(
-                       LENGTH OF FUNCTION TRIM(LS-NEXT-MOV-HIST) - 1:2
-                   )
-
+               STRING FUNCTION TRIM(LS-QUEUE-VALUE-MOV-HIST)
+                   LS-NEXT-MOV
+                   INTO LS-NEXT-MOV-HIST
+               END-STRING
                CALL "VISIT-STEP" USING
                    VISITED-GRP
                    LS-NEXT-ROW
@@ -546,7 +543,6 @@
                        QUEUE-GRP
                        LS-NEXT-ROW
                        LS-NEXT-COL
-                       LS-NEXT-MOV
                        LS-NEXT-MOV-HIST
                END-IF
 
