@@ -129,7 +129,7 @@
                10  LS-TARGET-SEQUENCE            PIC X(100) VALUE SPACE.
        01  LS-SHORTEST-INPUTS-IDX                PIC 9(3).
        01  LS-SHORTEST-INPUTS-GRP.
-           05  LS-SHORTEST-INPUTS-SIZE           PIC 9(3).
+           05  LS-SHORTEST-INPUTS-SIZE           PIC 9(3) VALUE 1.
            05  LS-SHORTEST-INPUTS
                OCCURS 999 TIMES.
                10  LS-SHORTEST-INPUT             PIC X(100) VALUE SPACE.
@@ -168,7 +168,7 @@
                        BY REFERENCE
                        LS-KP-TYPE
                        LS-NEXT-TEST-SEQUENCE
-                       LS-SHORTEST-INPUTS-GRP
+                       LS-SHORTEST-INPUTS(1)
 
                    DISPLAY "(" LS-KP-IDX ") Shortest sequences for "
                        function trim(ls-next-test-sequence) ": "
@@ -231,17 +231,14 @@
        LINKAGE SECTION.
        01  IN-KP-TYPE                            PIC 9(1).
        01  IN-TARGET-SEQUENCE                    PIC X(100).
-       01  OUT-SHORTEST-INPUTS-GRP.
-           05  OUT-SHORTEST-INPUTS-SIZE          PIC 9(3).
-           05  OUT-SHORTEST-INPUTS
-               OCCURS 999 TIMES.
-               10  OUT-SHORTEST-INPUT            PIC X(100).
+       01  OUT-SOURCE-SEQUENCE                   PIC x(100).
 
        PROCEDURE DIVISION USING BY REFERENCE
            IN-KP-TYPE
            IN-TARGET-SEQUENCE
-           OUT-SHORTEST-INPUTS-GRP.
+           OUT-SOURCE-SEQUENCE.
 
+           SET OUT-SOURCE-SEQUENCE TO SPACES
            STRING "A" IN-TARGET-SEQUENCE INTO LS-TARGET-SEQUENCE
 
            PERFORM VARYING LS-TARGET-IDX FROM 1 BY 1 UNTIL
@@ -255,15 +252,13 @@
                    LS-SOURCE-STEP-SEQUENCE
 
                STRING
-                   FUNCTION TRIM(LS-SOURCE-SEQUENCE)
+                   FUNCTION TRIM(OUT-SOURCE-SEQUENCE)
                    FUNCTION TRIM(LS-SOURCE-STEP-SEQUENCE)
-                   INTO LS-SOURCE-SEQUENCE
+                   INTO OUT-SOURCE-SEQUENCE
                END-STRING
            END-PERFORM
 
-           MOVE 1 TO OUT-SHORTEST-INPUTS-SIZE
-           SET OUT-SHORTEST-INPUT(1) TO LS-SOURCE-SEQUENCE
-       .
+           .
        END PROGRAM FIND-SHORTEST-INPUT-SEQUENCE.
 
       *> ===============================================================
