@@ -119,25 +119,8 @@
        LOCAL-STORAGE SECTION.
        01  LS-KP-IDX                             PIC 9(1) VALUE 3.
        01  LS-KP-TYPE                            PIC 9(1).
-       01  LS-NEXT-TEST-SEQUENCE                 PIC X(100).
-       01  LS-SHORTEST-INPUT-SEQUENCE            PIC X(100).
-       01  LS-TARGET-SEQUENCES-IDX               PIC 9(3).
-       01  LS-TARGET-SEQUENCES-GRP.
-           05  LS-TARGET-SEQUENCES-SIZE          PIC 9(3).
-           05  LS-TARGET-SEQUENCES
-               OCCURS 999 TIMES.
-               10  LS-TARGET-SEQUENCE            PIC X(100) VALUE SPACE.
-       01  LS-SHORTEST-INPUTS-IDX                PIC 9(3).
-       01  LS-SHORTEST-INPUTS-GRP.
-           05  LS-SHORTEST-INPUTS-SIZE           PIC 9(3) VALUE 1.
-           05  LS-SHORTEST-INPUTS
-               OCCURS 999 TIMES.
-               10  LS-SHORTEST-INPUT             PIC X(100) VALUE SPACE.
-       01  LS-NEXT-TARGETS-GRP.
-           05  LS-NEXT-TARGETS-SIZE              PIC 9(3).
-           05  LS-NEXT-TARGETS
-               OCCURS 999 TIMES.
-               10  LS-NEXT-TARGET                PIC X(100) VALUE SPACE.
+       01  LS-TARGET-SEQUENCE                    PIC X(100).
+       01  LS-SOURCE-SEQUENCE                    PIC X(100).
        LINKAGE SECTION.
        01  IN-TARGET-SEQUENCE                    PIC X(100).
        01  OUT-COMPLEXITY                        PIC 9(6).
@@ -148,67 +131,36 @@
 
            display "calculate complexity '"
            function trim(in-target-sequence) "'"
-           SET LS-TARGET-SEQUENCES-SIZE TO 1
-           SET LS-TARGET-SEQUENCE(1) TO IN-TARGET-SEQUENCE
+           SET LS-TARGET-SEQUENCE TO IN-TARGET-SEQUENCE
            SET LS-KP-TYPE TO C-TYPE-NUMERIC
 
-           PERFORM UNTIL LS-KP-IDX = 0
+           PERFORM VARYING LS-KP-IDX FROM 3 BY -1 UNTIL
+               LS-KP-IDX = 0
 
                DISPLAY SPACE
-               DISPLAY "Level " LS-KP-IDX
-               SET LS-NEXT-TARGETS-SIZE TO 0
+               DISPLAY "Level " LS-KP-IDX ": " ls-target-sequence
 
-               PERFORM VARYING LS-TARGET-SEQUENCES-IDX FROM 1 BY 1
-                   UNTIL LS-TARGET-SEQUENCES-IDX >
-                       LS-TARGET-SEQUENCES-SIZE
-                   SET LS-NEXT-TEST-SEQUENCE TO
-                       LS-TARGET-SEQUENCE(LS-TARGET-SEQUENCES-IDX)
+               CALL "FIND-SHORTEST-INPUT-SEQUENCE" USING
+                   BY REFERENCE
+                   LS-KP-TYPE
+                   LS-TARGET-SEQUENCE
+                   LS-SOURCE-SEQUENCE
 
-                   CALL "FIND-SHORTEST-INPUT-SEQUENCE" USING
-                       BY REFERENCE
-                       LS-KP-TYPE
-                       LS-NEXT-TEST-SEQUENCE
-                       LS-SHORTEST-INPUTS(1)
 
-                   DISPLAY "(" LS-KP-IDX ") Shortest sequences for "
-                       function trim(ls-next-test-sequence) ": "
-                   PERFORM VARYING LS-SHORTEST-INPUTS-IDX FROM 1 BY 1
-                       UNTIL LS-SHORTEST-INPUTS-IDX >
-                       LS-SHORTEST-INPUTS-SIZE
+               DISPLAY "(" LS-KP-IDX ") Shortest sequences for "
+                   function trim(ls-target-sequence) ": "
+                   LS-SOURCE-SEQUENCE
 
-                       ADD 1 TO LS-NEXT-TARGETS-SIZE
-                       display  LS-SHORTEST-INPUT(
-                           LS-SHORTEST-INPUTS-IDX)
-                       MOVE LS-SHORTEST-INPUT(LS-SHORTEST-INPUTS-IDX)
-                           TO LS-NEXT-TARGET(LS-NEXT-TARGETS-SIZE)
-                   END-PERFORM
-               END-PERFORM
-               MOVE LS-NEXT-TARGETS-GRP TO LS-TARGET-SEQUENCES-GRP
-               ADD -1 TO LS-KP-IDX
+               MOVE LS-SOURCE-SEQUENCE TO LS-TARGET-SEQUENCE
                SET LS-KP-TYPE TO C-TYPE-DIRECTIONAL
            END-PERFORM
       *> Find the shortest input sequence now
-           SET LS-SHORTEST-INPUT-SEQUENCE TO SPACES
-           PERFORM VARYING LS-TARGET-SEQUENCES-IDX FROM 1 BY 1
-               UNTIL LS-TARGET-SEQUENCES-IDX >
-                   LS-TARGET-SEQUENCES-SIZE
-               IF LS-SHORTEST-INPUT-SEQUENCE = SPACES OR
-                   LENGTH OF FUNCTION TRIM(LS-SHORTEST-INPUT-SEQUENCE)
-                       > LS-TARGET-SEQUENCE(LS-TARGET-SEQUENCES-IDX)
-
-                   SET Ls-SHORTEST-INPUT-SEQUENCE TO
-                       LS-TARGET-SEQUENCE(LS-TARGET-SEQUENCES-IDX)
-               END-IF
-
-           END-PERFORM
-           DISPLAY "Shortest lowest level input sequence "
-               LS-SHORTEST-INPUT-SEQUENCE
            COMPUTE OUT-COMPLEXITY =
                LENGTH OF FUNCTION TRIM(
-                   LS-SHORTEST-INPUT-SEQUENCE
+                   LS-SOURCE-SEQUENCE
                ) * FUNCTION NUMVAL(IN-TARGET-SEQUENCE)
            DISPLAY "Complexity "  LENGTH OF FUNCTION TRIM(
-                   LS-SHORTEST-INPUT-SEQUENCE
+                   LS-SOURCE-SEQUENCE
                ) "*" FUNCTION NUMVAL(IN-TARGET-SEQUENCE)
                " = "OUT-COMPLEXITY
 
