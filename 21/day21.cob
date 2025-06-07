@@ -74,7 +74,6 @@
                            NOT AT END
                                MOVE F-FILE-RECORD TO LS-LINE
                                CALL "CALCULATE-COMPLEXITY" USING
-                                   KP-GRP
                                    LS-LINE
                                    LS-COMPLEXITY
                                ADD LS-COMPLEXITY TO LS-TOTAL-COMPLEXITY
@@ -86,10 +85,10 @@
                    SET LS-KP-IDX TO LS-INPUT(1:1)
                    SET KP-CUR-ROW(LS-KP-IDX) TO LS-INPUT(2:1)
                    SET KP-CUR-COL(LS-KP-IDX) TO LS-INPUT(3:1)
-                   CALL "FIND-SHORTEST-INPUT-STEP" USING
-                       KP-GRP
-                       LS-KP-IDX
-                       LS-INPUT(4:1)
+                   CALL "GET-STEP-PATH" USING
+                       KP-TYPE(LS-KP-IDX)
+                       LS-INPUT(2:1)
+                       LS-INPUT(3:1)
                        LS-SHORTEST-SEQUENCE
                    DISPLAY "Shortest: " LS-SHORTEST-SEQUENCE
 
@@ -115,8 +114,11 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. CALCULATE-COMPLEXITY.
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "constants" IN "21/src".
        LOCAL-STORAGE SECTION.
        01  LS-KP-IDX                             PIC 9(1) VALUE 3.
+       01  LS-KP-TYPE                            PIC 9(1).
        01  LS-NEXT-TEST-SEQUENCE                 PIC X(100).
        01  LS-SHORTEST-INPUT-SEQUENCE            PIC X(100).
        01  LS-TARGET-SEQUENCES-IDX               PIC 9(3).
@@ -137,12 +139,10 @@
                OCCURS 999 TIMES.
                10  LS-NEXT-TARGET                PIC X(100) VALUE SPACE.
        LINKAGE SECTION.
-       COPY "keypad" IN "21/src".
        01  IN-TARGET-SEQUENCE                    PIC X(100).
        01  OUT-COMPLEXITY                        PIC 9(6).
 
        PROCEDURE DIVISION USING BY REFERENCE
-           KP-GRP
            IN-TARGET-SEQUENCE
            OUT-COMPLEXITY.
 
@@ -150,6 +150,7 @@
            function trim(in-target-sequence) "'"
            SET LS-TARGET-SEQUENCES-SIZE TO 1
            SET LS-TARGET-SEQUENCE(1) TO IN-TARGET-SEQUENCE
+           SET LS-KP-TYPE TO C-TYPE-NUMERIC
 
            PERFORM UNTIL LS-KP-IDX = 0
 
@@ -163,20 +164,13 @@
                    SET LS-NEXT-TEST-SEQUENCE TO
                        LS-TARGET-SEQUENCE(LS-TARGET-SEQUENCES-IDX)
 
-                   IF LS-KP-IDX < 3
-                       CALL "INIT-DIRECTIONAL-KEYPAD" USING
-                           BY REFERENCE
-                           KP-GRP
-                           LS-KP-IDX
-                   END-IF
                    CALL "FIND-SHORTEST-INPUT-SEQUENCE" USING
                        BY REFERENCE
-                       KP-GRP
-                       LS-KP-IDX
+                       LS-KP-TYPE
                        LS-NEXT-TEST-SEQUENCE
                        LS-SHORTEST-INPUTS-GRP
 
-                   DISPLAY "Shortest sequences for "
+                   DISPLAY "(" LS-KP-IDX ") Shortest sequences for "
                        function trim(ls-next-test-sequence) ": "
                    PERFORM VARYING LS-SHORTEST-INPUTS-IDX FROM 1 BY 1
                        UNTIL LS-SHORTEST-INPUTS-IDX >
@@ -191,6 +185,7 @@
                END-PERFORM
                MOVE LS-NEXT-TARGETS-GRP TO LS-TARGET-SEQUENCES-GRP
                ADD -1 TO LS-KP-IDX
+               SET LS-KP-TYPE TO C-TYPE-DIRECTIONAL
            END-PERFORM
       *> Find the shortest input sequence now
            SET LS-SHORTEST-INPUT-SEQUENCE TO SPACES
@@ -226,28 +221,15 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. FIND-SHORTEST-INPUT-SEQUENCE.
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "constants" IN "21/src".
        LOCAL-STORAGE SECTION.
-       01  LS-QUEUE-VALUE-ROW                    PIC 9(1).
-       01  LS-QUEUE-VALUE-COL                    PIC 9(1).
-       01  LS-QUEUE-VALUE-MOV                    PIC X(1).
-       01  LS-QUEUE-VALUE-KEYPRESS-HIST          PIC X(100).
-       01  LS-QUEUE-VALUE-MOV-HIST               PIC X(100).
-       01  LS-NEXT-ROW                           PIC 9(1).
-       01  LS-NEXT-COL                           PIC 9(1).
-       01  LS-NEXT-MOV                           PIC X(1).
-       01  LS-NEXT-KEYPRESS-HIST                 PIC X(100).
-       01  LS-NEXT-MOV-HIST                      PIC X(100).
-       01  LS-PREV-MOV                           PIC X(2).
-       01  LS-IS-VALID-MOVE                      PIC 9(1).
-
-       01  LS-NEXT-CANDIDATE-KEYPRESS-HIST       PIC X(100).
-       01  LS-VISIT-RESULT                       PIC 9(1).
-       COPY "queue" IN "21/src".
-       COPY "visited" IN "21/src".
-
+       01  LS-TARGET-IDX                         PIC 9(3).
+       01  LS-TARGET-SEQUENCE                    PIC X(100).
+       01  LS-SOURCE-STEP-SEQUENCE               PIC X(100).
+       01  LS-SOURCE-SEQUENCE                    PIC X(100).
        LINKAGE SECTION.
-       COPY "keypad" IN "21/src".
-       01  IN-KP-IDX                             PIC 9(1) VALUE 1.
+       01  IN-KP-TYPE                            PIC 9(1).
        01  IN-TARGET-SEQUENCE                    PIC X(100).
        01  OUT-SHORTEST-INPUTS-GRP.
            05  OUT-SHORTEST-INPUTS-SIZE          PIC 9(3).
@@ -256,297 +238,241 @@
                10  OUT-SHORTEST-INPUT            PIC X(100).
 
        PROCEDURE DIVISION USING BY REFERENCE
-           KP-GRP
-           IN-KP-IDX
+           IN-KP-TYPE
            IN-TARGET-SEQUENCE
            OUT-SHORTEST-INPUTS-GRP.
 
-           SET OUT-SHORTEST-INPUTS-SIZE TO 0
-           SET LS-QUEUE-VALUE-ROW TO KP-CUR-ROW(IN-KP-IDX)
-           SET LS-QUEUE-VALUE-COL TO KP-CUR-COL(IN-KP-IDX)
-           SET LS-QUEUE-VALUE-MOV TO SPACE
-           SET LS-QUEUE-VALUE-KEYPRESS-HIST TO SPACE
-           SET LS-QUEUE-VALUE-MOV-HIST TO SPACE
+           STRING "A" IN-TARGET-SEQUENCE INTO LS-TARGET-SEQUENCE
 
-           CALL "VISIT" USING
-               VISITED-GRP
-               LS-QUEUE-VALUE-ROW
-               LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-KEYPRESS-HIST
-               LS-QUEUE-VALUE-MOV-HIST
-           CALL "ENQUEUE" USING
-               QUEUE-GRP
-               LS-QUEUE-VALUE-ROW
-               LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-MOV
-               LS-QUEUE-VALUE-KEYPRESS-HIST
-               LS-QUEUE-VALUE-MOV-HIST
+           PERFORM VARYING LS-TARGET-IDX FROM 1 BY 1 UNTIL
+               LS-TARGET-IDX = LENGTH OF
+               FUNCTION TRIM(LS-TARGET-SEQUENCE)
 
-           PERFORM UNTIL QUEUE-SIZE = 0
-               CALL "DEQUEUE" USING
-               QUEUE-GRP
-               LS-QUEUE-VALUE-ROW
-               LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-MOV
-               LS-QUEUE-VALUE-KEYPRESS-HIST
-               LS-QUEUE-VALUE-MOV-HIST
+               CALL "GET-STEP-PATH" USING
+                   IN-KP-TYPE
+                   LS-TARGET-SEQUENCE(LS-TARGET-IDX:1)
+                   LS-TARGET-SEQUENCE(LS-TARGET-IDX + 1:1)
+                   LS-SOURCE-STEP-SEQUENCE
 
-               SET LS-NEXT-MOV-HIST TO SPACE
-
-               SET LS-NEXT-KEYPRESS-HIST TO LS-QUEUE-VALUE-KEYPRESS-HIST
-
-               STRING FUNCTION TRIM(LS-QUEUE-VALUE-MOV-HIST)
-                   LS-QUEUE-VALUE-MOV
-                   INTO LS-NEXT-MOV-HIST
+               STRING
+                   FUNCTION TRIM(LS-SOURCE-SEQUENCE)
+                   FUNCTION TRIM(LS-SOURCE-STEP-SEQUENCE)
+                   INTO LS-SOURCE-SEQUENCE
                END-STRING
-
-
-               STRING FUNCTION TRIM(LS-QUEUE-VALUE-KEYPRESS-HIST)
-                   KP-KEY(
-                       IN-KP-IDX,
-                       LS-QUEUE-VALUE-ROW,
-                       LS-QUEUE-VALUE-COL
-                   )
-                   INTO LS-NEXT-CANDIDATE-KEYPRESS-HIST
-               END-STRING
-
-      *> We found the target sequence, done!
-               IF LS-NEXT-CANDIDATE-KEYPRESS-HIST = IN-TARGET-SEQUENCE
-                   ADD 1 TO OUT-SHORTEST-INPUTS-SIZE
-                   STRING
-                       FUNCTION TRIM(LS-NEXT-MOV-HIST)
-                       "A"
-                       INTO OUT-SHORTEST-INPUT(OUT-SHORTEST-INPUTS-SIZE)
-                   END-STRING
-                   GOBACK
-               ELSE
-      *> We found a substring:
-                   IF IN-TARGET-SEQUENCE(
-                       1:LENGTH OF FUNCTION TRIM(
-                           LS-NEXT-CANDIDATE-KEYPRESS-HIST)
-                   ) = LS-NEXT-CANDIDATE-KEYPRESS-HIST
-                       STRING
-                           FUNCTION TRIM(LS-NEXT-MOV-HIST)
-                           "A"
-                           INTO LS-NEXT-MOV-HIST
-                       END-STRING
-                       SET LS-NEXT-KEYPRESS-HIST TO
-                           LS-NEXT-CANDIDATE-KEYPRESS-HIST
-                   END-IF
-      *> Try bottom
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW + 1
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-MOV TO "v"
-                   PERFORM TRY-NEIGHBOR
-      *> Try right
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL + 1
-                   SET LS-NEXT-MOV TO ">"
-                   PERFORM TRY-NEIGHBOR
-      *> Try left
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL - 1
-                   SET LS-NEXT-MOV TO "<"
-                   PERFORM TRY-NEIGHBOR
-      *> Try up
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW - 1
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-MOV TO "^"
-                   PERFORM TRY-NEIGHBOR
-      *> Try the same?
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-MOV TO " "
-                   PERFORM TRY-NEIGHBOR
-
-
-               END-IF
-
            END-PERFORM
 
-           GOBACK.
-
-       TRY-NEIGHBOR.
-           IF LS-NEXT-ROW >= 1 AND LS-NEXT-ROW <= KP-HEIGHT(IN-KP-IDX)
-               AND LS-NEXT-COL >= 1 AND LS-NEXT-COL <= 3
-               AND KP-KEY(IN-KP-IDX, LS-NEXT-ROW, LS-NEXT-COL) NOT =
-               SPACE
-
-      *> Forbid some movements which we know are not optimal
-               SET LS-PREV-MOV TO LS-NEXT-MOV-HIST(
-                       LENGTH OF FUNCTION TRIM(LS-NEXT-MOV-HIST) - 1:2
-                   )
-               SET LS-IS-VALID-MOVE TO 1
-               IF IN-KP-IDX = 3
-                   EVALUATE
-                       LS-PREV-MOV
-                       ALSO LS-NEXT-MOV
-
-                       WHEN "A<" ALSO "^"
-                       WHEN "Av" ALSO ">"
-                       WHEN "A<" ALSO "v"
-                           SET LS-IS-VALID-MOVE TO 0
-                   END-EVALUATE
-               END-IF
-
-               IF LS-IS-VALID-MOVE = 1
-                   CALL "VISIT" USING
-                       VISITED-GRP
-                       LS-NEXT-ROW
-                       LS-NEXT-COL
-                       LS-NEXT-KEYPRESS-HIST
-                       LS-NEXT-MOV-HIST
-                       RETURNING LS-VISIT-RESULT
-
-                   IF LS-VISIT-RESULT = 0
-                       CALL "ENQUEUE" USING BY REFERENCE
-                           QUEUE-GRP
-                           LS-NEXT-ROW
-                           LS-NEXT-COL
-                           LS-NEXT-MOV
-                           LS-NEXT-KEYPRESS-HIST
-                           LS-NEXT-MOV-HIST
-                   END-IF
-               END-IF
-
-
-
-           END-IF
-           .
+           MOVE 1 TO OUT-SHORTEST-INPUTS-SIZE
+           SET OUT-SHORTEST-INPUT(1) TO LS-SOURCE-SEQUENCE
+       .
        END PROGRAM FIND-SHORTEST-INPUT-SEQUENCE.
 
       *> ===============================================================
-      *> FIND-SHORTEST-INPUT-STEP
+      *> GET-STEP-PATH.
       *> ===============================================================
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. FIND-SHORTEST-INPUT-STEP.
+       PROGRAM-ID. GET-STEP-PATH.
+
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  C-LEFT                               PIC X(3) VALUE "<<<".
+       01  C-RIGHT                              PIC X(3) VALUE ">>>".
+       01  C-TOP                                PIC X(3) VALUE "^^^".
+       01  C-BOTTOM                             PIC X(3) VALUE "vvv".
+       COPY "constants" IN "21/src".
        LOCAL-STORAGE SECTION.
-       01  LS-QUEUE-VALUE-ROW                    PIC 9(1).
-       01  LS-QUEUE-VALUE-COL                    PIC 9(1).
-       01  LS-QUEUE-VALUE-MOV-HIST               PIC X(100).
-       01  LS-NEXT-ROW                           PIC 9(1).
-       01  LS-NEXT-COL                           PIC 9(1).
-       01  LS-NEXT-MOV                           PIC X(1).
-       01  LS-NEXT-MOV-HIST                      PIC X(100).
-
-       01  LS-VISIT-RESULT                       PIC 9(1).
-       COPY "queuestep" IN "21/src".
-       COPY "visitedstep" IN "21/src".
-
+       01  LS-TARGET-START-ROW                  PIC 9(1).
+       01  LS-TARGET-START-COL                  PIC 9(1).
+       01  LS-TARGET-END-ROW                    PIC 9(1).
+       01  LS-TARGET-END-COL                    PIC 9(1).
+       01  LS-TARGET-DELTA-ROW                  PIC S9(1).
+       01  LS-TARGET-DELTA-COL                  PIC S9(1).
+       01  LS-SOURCE-SEQUENCE-UP                PIC X(3) VALUE SPACES.
+       01  LS-SOURCE-SEQUENCE-RIGHT             PIC X(3) VALUE SPACES.
+       01  LS-SOURCE-SEQUENCE-DOWN              PIC X(3) VALUE SPACES.
+       01  LS-SOURCE-SEQUENCE-LEFT              PIC X(3) VALUE SPACES.
        LINKAGE SECTION.
-       COPY "keypad" IN "21/src".
-       01  IN-KP-IDX                             PIC 9(1) VALUE 1.
-       01  IN-TARGET-MOV                         PIC X(1).
-       01  OUT-SHORTEST-INPUT                    PIC X(100).
+       01  IN-KP-TYPE                           PIC 9(1).
+       01  IN-TARGET-START-KEY                  PIC X(1).
+       01  IN-TARGET-END-KEY                    PIC X(1).
+       01  OUT-SOURCE-SEQUENCE                  PIC x(100).
 
        PROCEDURE DIVISION USING BY REFERENCE
-           KP-GRP
-           IN-KP-IDX
-           IN-TARGET-MOV
-           OUT-SHORTEST-INPUT.
+           IN-KP-TYPE
+           IN-TARGET-START-KEY
+           IN-TARGET-END-KEy
+           OUT-SOURCE-SEQUENCE.
 
-           SET OUT-SHORTEST-INPUT TO SPACE
-           SET LS-QUEUE-VALUE-ROW TO KP-CUR-ROW(IN-KP-IDX)
-           SET LS-QUEUE-VALUE-COL TO KP-CUR-COL(IN-KP-IDX)
-           SET LS-QUEUE-VALUE-MOV-HIST TO SPACE
+           SET OUT-SOURCE-SEQUENCE TO SPACES
 
-           CALL "VISIT-STEP" USING
-               VISITED-GRP
-               LS-QUEUE-VALUE-ROW
-               LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-MOV-HIST
-           CALL "ENQUEUE-STEP" USING
-               QUEUE-GRP
-               LS-QUEUE-VALUE-ROW
-               LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-MOV-HIST
+           CALL "GET-POSITION" USING
+               IN-KP-TYPE
+               IN-TARGET-START-KEY
+               LS-TARGET-START-ROW
+               LS-TARGET-START-COL
 
-           PERFORM UNTIL QUEUE-SIZE = 0
-               CALL "DEQUEUE-STEP" USING
-               QUEUE-GRP
-               LS-QUEUE-VALUE-ROW
-               LS-QUEUE-VALUE-COL
-               LS-QUEUE-VALUE-MOV-HIST
+           CALL "GET-POSITION" USING
+               IN-KP-TYPE
+               IN-TARGET-END-KEY
+               LS-TARGET-END-ROW
+               LS-TARGET-END-COL
 
-               display "dequeue key [" ls-queue-value-row ","
-                   ls-queue-value-col "]="
-                   KP-KEY(
-                       IN-KP-IDX
-                       LS-QUEUE-VALUE-ROW
-                       LS-QUEUE-VALUE-COL
-                   ) ", already moved "
-                   function trim(ls-queue-value-mov-hist)
+           COMPUTE LS-TARGET-DELTA-ROW = 
+               LS-TARGET-END-ROW - LS-TARGET-START-ROW
+           COMPUTE LS-TARGET-DELTA-COL = 
+               LS-TARGET-END-COL - LS-TARGET-START-COL
 
-      *> We found the target sequence, done!
+           EVALUATE LS-TARGET-DELTA-ROW
+               WHEN < 0
+                   SET LS-SOURCE-SEQUENCE-UP TO
+                       C-TOP(1: - LS-TARGET-DELTA-ROW)
+               WHEN > 0
+                   SET LS-SOURCE-SEQUENCE-DOWN TO
+                       C-BOTTOM(1: LS-TARGET-DELTA-ROW)
+           END-EVALUATE
+           EVALUATE LS-TARGET-DELTA-COL
+               WHEN < 0
+                   SET LS-SOURCE-SEQUENCE-LEFT TO
+                       C-LEFT(1: - LS-TARGET-DELTA-COL)
+               WHEN > 0
+                   SET LS-SOURCE-SEQUENCE-RIGHT TO
+                       C-RIGHT(1: LS-TARGET-DELTA-COL)
+           END-EVALUATE
 
-               IF KP-KEY(
-                   IN-KP-IDX
-                   LS-QUEUE-VALUE-ROW
-                   LS-QUEUE-VALUE-COL
-               ) = IN-TARGET-MOV
-                   MOVE LS-QUEUE-VALUE-MOV-HIST TO OUT-SHORTEST-INPUT
+      *> TODO FIX
+           EVALUATE IN-KP-TYPE
+               WHEN C-TYPE-NUMERIC
+                   IF (
+                           LS-TARGET-START-COL = 1
+                           AND LS-TARGET-END-COL > 1
+                           AND LS-TARGET-END-ROW = 4
+                       ) OR (
+                           LS-TARGET-START-ROW = 4
+                           AND LS-TARGET-END-COL = 1
+                           AND LS-TARGET-END-ROW < 4
+                       ) 
+                       STRING
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-UP)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-LEFT)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-RIGHT)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-DOWN)
+                           "A"
+                           INTO OUT-SOURCE-SEQUENCE
+                       END-STRING
+                   ELSE
+                       STRING
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-LEFT)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-DOWN)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-UP)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-RIGHT)
+                           "A"
+                           INTO OUT-SOURCE-SEQUENCE
+                       END-STRING
+                   END-IF
+               WHEN C-TYPE-DIRECTIONAL
+                   IF (
+                           LS-TARGET-START-ROW = 1
+                           AND LS-TARGET-END-COL = 1
+                       ) OR (
+                           LS-TARGET-START-COL = 1
+                           AND LS-TARGET-END-ROW = 1
+                       ) 
+                       STRING
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-RIGHT)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-UP)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-DOWN)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-LEFT)
+                           "A"
+                           INTO OUT-SOURCE-SEQUENCE
+                       END-STRING
+                   ELSE
+                       STRING
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-LEFT)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-DOWN)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-UP)
+                           FUNCTION TRIM(LS-SOURCE-SEQUENCE-RIGHT)
+                           "A"
+                           INTO OUT-SOURCE-SEQUENCE
+                       END-STRING
+                   END-IF
 
-                   GOBACK
-               ELSE
-      *> Try bottom
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW + 1
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-MOV TO "v"
-                   PERFORM TRY-NEIGHBOR
-      *> Try right
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL + 1
-                   SET LS-NEXT-MOV TO ">"
-                   PERFORM TRY-NEIGHBOR
-      *> Try left
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL - 1
-                   SET LS-NEXT-MOV TO "<"
-                   PERFORM TRY-NEIGHBOR
-      *> Try up
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW - 1
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-MOV TO "^"
-                   PERFORM TRY-NEIGHBOR
-      *> Try the same?
-                   COMPUTE LS-NEXT-ROW = LS-QUEUE-VALUE-ROW
-                   COMPUTE LS-NEXT-COL = LS-QUEUE-VALUE-COL
-                   SET LS-NEXT-MOV TO " "
-                   PERFORM TRY-NEIGHBOR
-
-               END-IF
-
-           END-PERFORM
-
-           GOBACK.
-
-       TRY-NEIGHBOR.
-           IF LS-NEXT-ROW >= 1 AND LS-NEXT-ROW <= KP-HEIGHT(IN-KP-IDX)
-               AND LS-NEXT-COL >= 1 AND LS-NEXT-COL <= 3
-               AND KP-KEY(IN-KP-IDX, LS-NEXT-ROW, LS-NEXT-COL) NOT =
-               SPACE
-
-               STRING FUNCTION TRIM(LS-QUEUE-VALUE-MOV-HIST)
-                   LS-NEXT-MOV
-                   INTO LS-NEXT-MOV-HIST
-               END-STRING
-               CALL "VISIT-STEP" USING
-                   VISITED-GRP
-                   LS-NEXT-ROW
-                   LS-NEXT-COL
-                   LS-NEXT-MOV-HIST
-                   RETURNING LS-VISIT-RESULT
-
-               IF LS-VISIT-RESULT = 0
-                   CALL "ENQUEUE-STEP" USING BY REFERENCE
-                       QUEUE-GRP
-                       LS-NEXT-ROW
-                       LS-NEXT-COL
-                       LS-NEXT-MOV-HIST
-               END-IF
-
-           END-IF
+           END-EVALUATE
            .
-       END PROGRAM FIND-SHORTEST-INPUT-STEP.
+       END PROGRAM GET-STEP-PATH.
 
+
+      *> ===============================================================
+      *> GET-POSITION.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. GET-POSITION.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "constants" IN "21/src".
+       LOCAL-STORAGE SECTION.
+       01  LS-TEMP PIC 9(1).
+       LINKAGE SECTION.
+       01  IN-KP-TYPE                           PIC 9(1).
+       01  IN-KEY                               PIC X(1).
+       01  OUT-ROW                              PIC 9(1).
+       01  OUT-COL                              PIC 9(1).
+
+       PROCEDURE DIVISION USING BY REFERENCE
+           IN-KP-TYPE
+           IN-KEY
+           OUT-ROW
+           OUT-COL.
+
+           EVALUATE IN-KEY ALSO IN-KP-TYPE
+      *> Directional
+               WHEN "^" ALSO ANY
+                   SET OUT-ROW TO 1
+                   SET OUT-COL TO 2
+               WHEN "A" ALSO C-TYPE-DIRECTIONAL
+                   SET OUT-ROW TO 1
+                   SET OUT-COL TO 3
+               WHEN "<" ALSO ANY
+                   SET OUT-ROW TO 2
+                   SET OUT-COL TO 1
+               WHEN "v" ALSO ANY
+                   SET OUT-ROW TO 2
+                   SET OUT-COL TO 2
+               WHEN ">" ALSO ANY
+                   SET OUT-ROW TO 2
+                   SET OUT-COL TO 3
+      *> Numeric
+               WHEN "7" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 1
+                   SET OUT-COL TO 1
+               WHEN "8" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 1
+                   SET OUT-COL TO 2
+               WHEN "9" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 1
+                   SET OUT-COL TO 3
+               WHEN "4" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 2
+                   SET OUT-COL TO 1
+               WHEN "5" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 2
+                   SET OUT-COL TO 2
+               WHEN "6" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 2
+                   SET OUT-COL TO 3
+               WHEN "1" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 3
+                   SET OUT-COL TO 1
+               WHEN "2" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 3
+                   SET OUT-COL TO 2
+               WHEN "3" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 3
+                   SET OUT-COL TO 3
+               WHEN "0" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 4
+                   SET OUT-COL TO 2
+               WHEN "A" ALSO C-TYPE-NUMERIC
+                   SET OUT-ROW TO 4
+                   SET OUT-COL TO 3
+           END-EVALUATE
+           .
+       END PROGRAM GET-POSITION.
