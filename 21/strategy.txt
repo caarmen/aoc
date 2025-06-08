@@ -1,4 +1,4 @@
-* Create a data structure for the numeric keypad:
+* ✅ Create a data structure for the numeric keypad:
   - Grid of cells.
   - Current row/col, initially at the A position (4,3).
   - List of buttons pressed so far.
@@ -11,11 +11,10 @@
 +---+---+---+
     | 0 | A |
     +---+---+
-* Create a data structure for the numeric keypad:
+* ✅  Create a data structure for the directional keypad:
   - Grid of cells.
   - Current row/col, initially at the A position (4,3).
   - List of buttons pressed so far.
-  - Field indicating whether it's controlling a numeric or directional keypad.
   - Reference to the next keypad it's controlling (could be directional or numeric).
     +---+---+
     | ^ | A |
@@ -23,7 +22,9 @@
 | < | v | > |
 +---+---+---+
 
-* Create a program USE-NUMERIC-KEYPAD:
+👉 Change: Used the same data structure for both keypad types
+
+* ✅ Create a program USE-NUMERIC-KEYPAD:
   - Input:
     - a numeric keypad
     - an action (coming from a directional keypad): <,v,^,>, or A
@@ -31,18 +32,20 @@
     - mutates the state of the numeric keypad:
       - For a direction, update the current row/col.
       - For A, append to the list of buttons pressed so far.
-* Create a program USE-DIRECTIONAL-KEYPAD:
+* ✅ Create a program USE-DIRECTIONAL-KEYPAD:
   - Input:
     - a directional keypad
+    - the next keypad
     - an action (coming from a directional keypad): <,v,^,>, or A
   - Action:
-    - mutates the state of the numeric keypad:
+    - mutates the state of the directional keypad:
       - For a direction, update the current row/col.
       - For A:
         - append to the list of buttons pressed so far.
         - Send the value of the last row/col to the next keypad.
+👉 Change: Used the same program for both keypad types
 
-* Create a program for debugging the numeric keypad: 
+* ✅ Create a program for debugging the numeric keypad: 
   - Name: USE-NUMERIC-KEYPAD-SEQUENCE.
   - Setup:
     - One numeric keypad.
@@ -54,7 +57,7 @@
     - Input: <A^A>^^AvvvA
     - Expected list of buttons pressed: 029A
 
-* Create a program for debugging the directional keypad: 
+* ✅ Create a program for debugging the directional keypad: 
   - Name: USE-DIRECTIONAL-KEYPAD1-SEQUENCE.
   - Setup:
     - One numeric keypad.
@@ -67,7 +70,7 @@
     - Input: v<<A>>^A<A>AvA<^AA>A<vAAA>^A
     - Expected list of numeric buttons pressed: 029A
 
-* Create a program for debugging the 2nd directional keypad:
+* ✅ Create a program for debugging the 2nd directional keypad:
   - Name: USE-DIRECTIONAL-KEYPAD2-SEQUENCE.
   - Setup:
     - One numeric keypad.
@@ -81,7 +84,9 @@
     - Input: <vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A
     - Expected list of numeric buttons pressed: 029A
 
-* Create a program for debugging the 3rd directional keypad:
+👉 Change: Used the same test for both keypad types
+
+* ✅ Create a program for debugging the 3rd directional keypad:
   - Name: USE-DIRECTIONAL-KEYPAD3-SEQUENCE.
   - Setup:
     - One numeric keypad.
@@ -97,6 +102,8 @@
 v<<A>>^A<A>AvA<^AA>A<vAAA>^A
 <A^A>^^AvvvA
     - Expected list of numeric buttons pressed: 029A
+
+👉 Change: Used the same test for all keypads
 
 * Create a program for finding the shortest path for a given target numeric sequence.
   - Name: COMPUTE-COMPLEXITY
