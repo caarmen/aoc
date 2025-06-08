@@ -1,5 +1,5 @@
        01  KP-GRP.
-           05  KP OCCURS 3 TIMES.
+           05  KP OCCURS 26 TIMES.
                10  KP-TYPE                         PIC 9(1).
                10  KP-HEIGHT                       PIC 9(1) VALUE 4.
                10  KP-ROWS OCCURS 4 TIMES.
