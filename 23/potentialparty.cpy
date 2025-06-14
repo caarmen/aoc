@@ -1,0 +1,8 @@
+
+       01  POTENTIAL-PARTY-GRP.
+           05  POTENTIAL-PARTY-SIZE                    PIC 9(2).
+           05  POTENTIAL-PARTY OCCURS 1 TO 999 TIMES
+               DEPENDING ON POTENTIAL-PARTY-SIZE
+               ASCENDING KEY IS PARTY-COMPUTER-NAME
+               INDEXED BY POTENTIAL-PARTY-IDX.
+               10  PARTY-COMPUTER-NAME                 PIC X(2).

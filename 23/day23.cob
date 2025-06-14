@@ -36,6 +36,11 @@
        01  LS-LEFT                                     PIC X(2).
        01  LS-RIGHT                                    PIC X(2).
        01  LS-T-PARTY-COUNT                            PIC 9(6) VALUE 0.
+       01  LS-COMPUTER-IDX                             PIC 9(3).
+       01  LS-PARTY                                    PIC X(50).
+       01  LS-BIGGEST-PARTY                            PIC X(50) VALUE
+                                                           SPACES.
+       01  LS-STR-PTR                                  PIC 9(2).
        COPY "computer" IN "23".
        COPY "party" IN "23".
        LINKAGE SECTION.
@@ -51,7 +56,6 @@
                        EXIT PERFORM
                    NOT AT END
                        MOVE F-FILE-RECORD TO LS-LINE
-                       display ls-line
                        UNSTRING LS-LINE DELIMITED BY "-"
                            INTO LS-LEFT LS-RIGHT
                        END-UNSTRING
@@ -74,14 +78,43 @@
                COMPUTER-GRP
            CALL "DISPLAY-PARTIES" USING
                PARTIES-GRP
+
+      *> Part 1: parties of 3 computers, with a computer starting with
+      *> t:
            DISPLAY LS-T-PARTY-COUNT " parties with the t computer"
+
+      *> Part 2: biggest parties:
+      *> Go through our computer table, finding the biggest party
+      *> for the computers in each row. Keep track of the biggest
+      *> party overall.
+           PERFORM VARYING LS-COMPUTER-IDX FROM 1 BY 1
+               UNTIL LS-COMPUTER-IDX > COMPUTERS-SIZE
+               CALL "FIND-BIGGEST-PARTY" USING
+                   COMPUTER-GRP
+                   LS-COMPUTER-IDX
+                   LS-PARTY
+               IF LENGTH OF FUNCTION TRIM(LS-PARTY) > LENGTH OF FUNCTION
+                   TRIM(LS-BIGGEST-PARTY)
+                   SET LS-BIGGEST-PARTY TO LS-PARTY
+               END-IF
+           END-PERFORM
+
+           DISPLAY "Biggest party: " NO ADVANCING
+           PERFORM VARYING LS-STR-PTR FROM 1 BY 1 UNTIL
+               LS-STR-PTR > LENGTH OF FUNCTION TRIM(LS-BIGGEST-PARTY)
+               DISPLAY LS-BIGGEST-PARTY(LS-STR-PTR:1) NO ADVANCING
+               IF FUNCTION MOD(LS-STR-PTR, 2) = 0
+                   DISPLAY "," NO ADVANCING
+               END-IF
+           END-PERFORM
+           DISPLAY SPACE
            .
        END PROGRAM PARSE-FILE.
 
       *> ===============================================================
       *> ADD-PAIR.
-      *> Returns the number of new parties discovered with a computer
-      *> whose name starts with t.
+      *> Returns the number of new parties (of 3 computers) discovered
+      *> with a computer whose name starts with t.
       *> ===============================================================
        IDENTIFICATION DIVISION.
        PROGRAM-ID. ADD-PAIR.
@@ -202,6 +235,172 @@
            .
 
        END PROGRAM ADD-PAIR.
+
+      *> ===============================================================
+      *> FIND-BIGGEST-PARTY.
+      *> 
+      *> The given row in the computer table at the given index contains
+      *> the list of all computers linked to the one with COMPUTER-NAME.
+      *> 
+      *> Take this COMPUTER-NAME, and all the computers in the
+      *> COMPUTER-LINKS, and find the biggest subset of all these
+      *> computers which are linked together.
+      *>
+      *> Return this in OUT-BIGGEST-PARTY.
+      *> 
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. FIND-BIGGEST-PARTY.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       COPY "potentialparty" IN "23".
+       01  LS-PARTY                                    PIC X(50).
+       01  LS-IS-PARTY                                 PIC 9(1).
+       01  LS-VARIATION-COUNT                          PIC 9(18) COMP.
+       01  LS-VARIATION                                PIC 9(18) COMP.
+       01  LS-VARIATION-BIT-STR                        PIC X(14).
+       LINKAGE SECTION.
+       COPY "computer" in "23".
+       01  IN-COMPUTER-IDX                             PIC 9(3).
+       01  OUT-BIGGEST-PARTY                           PIC X(50).
+       PROCEDURE DIVISION USING BY REFERENCE
+           COMPUTER-GRP
+           IN-COMPUTER-IDX
+           OUT-BIGGEST-PARTY.
+
+      *> Create a "potential party": a sorted table containing
+      *> the COMPUTER-NAME and all linked computers for the given row.
+           COMPUTE POTENTIAL-PARTY-SIZE =
+               COMPUTER-LINKS-SIZE(IN-COMPUTER-IDX) + 1
+           PERFORM VARYING COMPUTER-LINKS-IDX FROM 1 BY 1
+               UNTIL COMPUTER-LINKS-IDX >
+                   COMPUTER-LINKS-SIZE(IN-COMPUTER-IDX)
+                   SET PARTY-COMPUTER-NAME(COMPUTER-LINKS-IDX) TO
+                   COMPUTER-LINK-NAME(
+                       IN-COMPUTER-IDX,
+                       COMPUTER-LINKS-IDX
+                   )
+           END-PERFORM
+
+           SET PARTY-COMPUTER-NAME(POTENTIAL-PARTY-SIZE) TO
+               COMPUTER-NAME(IN-COMPUTER-IDX)
+           SORT POTENTIAL-PARTY
+
+      *> Use a bitmask to go through all the combinations of the
+      *> different computer names.
+      *> If there are a total of 5 computers, we have 2**5 = 32
+      *> different combinations The combinations are composed by
+      *> including or excluding computers at a given index, based
+      *> on the 1, or 0, value of the bit string.
+           COMPUTE LS-VARIATION-COUNT = (2**POTENTIAL-PARTY-SIZE) - 1
+      *> We start with the value with all 1s, to find the biggest
+      *> party first. If there are 5 total computers, this is 11111
+      *> (31).
+           PERFORM VARYING LS-VARIATION FROM LS-VARIATION-COUNT
+               BY -1 UNTIL LS-VARIATION = 0
+
+      *> Get our bitmask representation of which computers to include:
+               CALL "TO-BINARY-STRING" USING
+                   LS-VARIATION
+                   POTENTIAL-PARTY-SIZE
+                   LS-VARIATION-BIT-STR
+
+      *> Construct a party string (sequence of computer names)
+      *> based on this bitmask.
+      *> Ex: if our 5 total computers are ax,bd,ed,ge,qs
+      *> and the bitmask is 13 (01101), we create a party string of
+      *> bdedqs.
+               SET LS-PARTY TO SPACE
+               PERFORM VARYING POTENTIAL-PARTY-IDX FROM 1 BY 1
+                   UNTIL POTENTIAL-PARTY-IDX > POTENTIAL-PARTY-SIZE
+                   IF LS-VARIATION-BIT-STR(POTENTIAL-PARTY-IDX:1) = "1"
+                       STRING FUNCTION TRIM(LS-PARTY) 
+                           PARTY-COMPUTER-NAME(POTENTIAL-PARTY-IDX)
+                           INTO LS-PARTY
+                       END-STRING
+                   END-IF
+               END-PERFORM
+
+      *> If we've confirmed that this is a party (all these computers
+      *> are connected to each other), return now. Any future parties
+      *> will be smaller (or the same size).
+               CALL "IS-PARTY" USING
+                   COMPUTER-GRP
+                   LS-PARTY
+               IF RETURN-CODE = 0
+                   SET OUT-BIGGEST-PARTY TO LS-PARTY
+                   GOBACK
+               END-IF
+           END-PERFORM
+
+
+           SET OUT-BIGGEST-PARTY TO SPACE
+
+           .
+       END PROGRAM FIND-BIGGEST-PARTY.
+
+      *> ===============================================================
+      *> IS-PARTY.
+      *> Return 0 if all computers in the potential party are connected
+      *> to each other, 1 otherwise.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. IS-PARTY.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-PARTY-SIZE                               PIC 9(2).
+       01  LS-IDX-1                                    PIC 9(3).
+       01  LS-IDX-2                                    PIC 9(3).
+       01  LS-LEFT                                     PIC X(2).
+       01  LS-RIGHT                                    PIC X(2).
+       LINKAGE SECTION.
+       COPY "computer" IN "23".
+       01  IN-PARTY                                    PIC X(50).
+
+       PROCEDURE DIVISION USING BY REFERENCE
+           COMPUTER-GRP
+           IN-PARTY.
+
+           COMPUTE LS-PARTY-SIZE = (LENGTH OF FUNCTION TRIM(IN-PARTY))
+               / 2
+
+      *> Iterate over all pairs. We call the pair items LS-LEFT and
+      *> LS-RIGHT.
+           PERFORM VARYING LS-IDX-1 FROM 1 BY 1 UNTIL
+               LS-IDX-1 > LS-PARTY-SIZE
+
+               SET LS-LEFT TO IN-PARTY((LS-IDX-1 - 1) * 2 + 1:2)
+
+               COMPUTE LS-IDX-2 = LS-IDX-1 + 1
+               PERFORM VARYING LS-IDX-2 FrOM LS-IDX-2 BY 1
+                   UNTIL LS-IDX-2 > LS-PARTY-SIZE
+                   SET LS-RIGHT TO IN-PARTY((LS-IDX-2 - 1) * 2 + 1:2)
+
+      *> For this given pair, check if they are linked.
+      *> To do this: Look up the row in the computer table where
+      *> the COMPUTER-NAME is LS-LEFT, and check if LS-RIGHT
+      *> is in the COMPUTER-LINKS.
+                   SET COMPUTER-IDX TO 1
+                   SEARCH ALL COMPUTERS
+                       WHEN COMPUTER-NAME(COMPUTER-IDX) = LS-LEFT
+                           SET COMPUTER-LINKS-IDX TO 1
+                           SEARCH COMPUTER-LINKS
+                               VARYING COMPUTER-LINKS-IDX
+                               AT END
+                                   SET RETURN-CODE TO 1
+                                   GOBACK
+                               WHEN COMPUTER-LINK-NAME(
+                                   COMPUTER-IDX,
+                                   COMPUTER-LINKS-IDX
+                               ) = LS-RIGHT
+                                   CONTINUE
+                           END-SEARCH
+               END-PERFORM
+           END-PERFORM
+
+           SET RETURN-CODE TO 0
+           .
+       END PROGRAM IS-PARTY.
 
       *> ===============================================================
       *> SORT-LINKS.
