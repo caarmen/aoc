@@ -1,5 +1,6 @@
        01  WIRE-GRP.
            05  WIRE-SIZE                    PIC 9(3) VALUE 0.
+           05  WIRE-INPUT-BIT-SIZE          PIC 9(2).
            05  WIRES OCCURS 1 TO 999 TIMES
                DEPENDING ON WIRE-SIZE
                ASCENDING KEY IS WIRE-NAME

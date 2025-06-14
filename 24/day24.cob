@@ -4,20 +4,31 @@
        DATA DIVISION.
 
        LOCAL-STORAGE SECTION.
+       01  LS-COMMAND-LINE           PIC X(30).
+       01  LS-INPUT-1                PIC 9(14) COMP.
+       01  LS-INPUT-2                PIC 9(14) COMP.
        01  LS-FILE-PATH              PIC X(30).
        01  LS-TOTAL-OUTPUT           PIC 9(18) COMP VALUE 0.
        COPY "wire" IN "24".
 
        PROCEDURE DIVISION.
 
-           ACCEPT LS-FILE-PATH FROM COMMAND-LINE
+           ACCEPT LS-COMMAND-LINE FROM COMMAND-LINE
+
+           UNSTRING LS-COMMAND-LINE DELIMITED BY " "
+               INTO LS-FILE-PATH LS-INPUT-1 LS-INPUT-2
+           END-UNSTRING
 
            CALL "PARSE-FILE" USING
                BY REFERENCE LS-FILE-PATH
                WIRE-GRP
-               
+
            CALL "DISPLAY-WIRES" USING
                WIRE-GRP
+           CALL "SETUP-INPUT" USING
+               WIRE-GRP
+               LS-INPUT-1
+               LS-INPUT-2
            CALL "EVALUATE-ALL" USING
                WIRE-GRP
            CALL "DISPLAY-WIRES" USING
@@ -77,16 +88,22 @@
                    NOT AT END
                        MOVE F-FILE-RECORD TO LS-LINE
                        EVALUATE TRUE
-      *> First part of the file input: 
+      *> First part of the file input:
                            WHEN LS-LINE(4:1) = ":"
                                ADD 1 TO WIRE-SIZE
                                SET WIRE-NAME(WIRE-SIZE) TO LS-LINE(1:3)
                                SET WIRE-GATE(WIRE-SIZE) TO C-INIT
                                SET WIRE-OUTPUT(WIRE-SIZE) TO
                                    FUNCTION NUMVAL(LS-LINE(6:1))
+                               IF WIRE-NAME(WIRE-SIZE) = "y00"
+                                   COMPUTE WIRE-INPUT-BIT-SIZE =
+                                       FUNCTION NUMVAL(
+                                           WIRE-NAME(WIRE-SIZE - 1)(2:2)
+                                       ) + 1
+                               END-IF
                            WHEN LS-LINE = SPACES
                                CONTINUE
-      *> Second part of the file input: 
+      *> Second part of the file input:
                            WHEN OTHER
                                UNSTRING LS-LINE DELIMITED BY " "
                                    INTO
@@ -205,7 +222,7 @@
        DATA DIVISION.
        LOCAL-STORAGE SECTION.
        01  LS-POSITION                           PIC 9(2).
-     
+
        LINKAGE SECTION.
        COPY "wire" IN "24".
        01  OUT-RESULT                            PIC 9(18) COMP VALUE 0.
@@ -223,10 +240,76 @@
 
                    COMPUTE OUT-RESULT = OUT-RESULT + 2**LS-POSITION
                END-IF
-               
+
            END-PERFORM
            .
        END PROGRAM CALCULATE-TOTAL-OUTPUT.
+
+      *> ===============================================================
+      *> SETUP-INPUT.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SETUP-INPUT.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-INPUT-BINARY-STR-1                PIC X(18).
+       01  LS-INPUT-BINARY-STR-2                PIC X(18).
+       01  LS-INPUT-1-NAME                      PIC X(3).
+       01  LS-INPUT-1-VALUE                     PIC 9(1).
+       01  LS-INPUT-2-NAME                      PIC X(3).
+       01  LS-INPUT-2-VALUE                     PIC 9(1).
+       01  LS-IDX                               PIC 9(2).
+       LINKAGE SECTION.
+       COPY "wire" IN "24".
+       01  IN-INPUT-1                           PIC 9(14) COMP.
+       01  IN-INPUT-2                           PIC 9(14) COMP.
+       PROCEDURE DIVISION USING BY REFERENCE
+           WIRE-GRP
+           IN-INPUT-1
+           IN-INPUT-2.
+
+           CALL "TO-BINARY-STRING" USING
+               IN-INPUT-1
+               WIRE-INPUT-BIT-SIZE
+               LS-INPUT-BINARY-STR-1
+
+           CALL "TO-BINARY-STRING" USING
+               IN-INPUT-2
+               WIRE-INPUT-BIT-SIZE
+               LS-INPUT-BINARY-STR-2
+
+           PERFORM VARYING LS-IDX FROM 0 BY 1 UNTIL
+               LS-IDX = WIRE-INPUT-BIT-SIZE
+               STRING "x" LS-IDX
+                   INTO LS-INPUT-1-NAME
+               END-STRING
+               SET LS-INPUT-1-VALUE TO LS-INPUT-BINARY-STR-1(
+                   WIRE-INPUT-BIT-SIZE - LS-IDX:1
+               )
+               STRING "y" LS-IDX
+                   INTO LS-INPUT-2-NAME
+               END-STRING
+               SET LS-INPUT-2-VALUE TO LS-INPUT-BINARY-STR-2(
+                   WIRE-INPUT-BIT-SIZE - LS-IDX:1
+               )
+               SET WIRE-IDX TO 1
+               SEARCH ALL WIRES
+                   WHEN WIRE-NAME(WIRE-IDX) = LS-INPUT-1-NAME
+                       SET WIRE-OUTPUT(WIRE-IDX) TO LS-INPUT-1-VALUE
+               END-SEARCH
+               SET WIRE-IDX TO 1
+               SEARCH ALL WIRES
+                   WHEN WIRE-NAME(WIRE-IDX) = LS-INPUT-2-NAME
+                       SET WIRE-OUTPUT(WIRE-IDX) TO LS-INPUT-2-VALUE
+               END-SEARCH
+           END-PERFORM
+
+           display "will add " in-input-1 " + " in-input-2
+               " which is " function trim(ls-input-binary-str-1) " + "
+               function trim(ls-input-binary-str-2)
+
+           .
+       END PROGRAM SETUP-INPUT.
 
       *> ===============================================================
       *> DISPLAY-WIRES.
