@@ -4,9 +4,9 @@
        DATA DIVISION.
 
        LOCAL-STORAGE SECTION.
-       01  LS-COMMAND-LINE           PIC X(30).
-       01  LS-INPUT-1                PIC 9(14) COMP.
-       01  LS-INPUT-2                PIC 9(14) COMP.
+       01  LS-COMMAND-LINE           PIC X(100).
+       01  LS-INPUT-1                PIC 9(18) COMP.
+       01  LS-INPUT-2                PIC 9(18) COMP.
        01  LS-FILE-PATH              PIC X(30).
        01  LS-TOTAL-OUTPUT           PIC 9(18) COMP VALUE 0.
        COPY "wire" IN "24".
@@ -25,13 +25,15 @@
 
            CALL "DISPLAY-WIRES" USING
                WIRE-GRP
+           CALL "FIND-INVALID-Z-WIRES" USING
+               WIRE-GRP
+           CALL "DISPLAY-WIRES" USING
+               WIRE-GRP
            CALL "SETUP-INPUT" USING
                WIRE-GRP
                LS-INPUT-1
                LS-INPUT-2
            CALL "EVALUATE-ALL" USING
-               WIRE-GRP
-           CALL "DISPLAY-WIRES" USING
                WIRE-GRP
            CALL "CALCULATE-TOTAL-OUTPUT" USING
                WIRE-GRP
@@ -137,6 +139,155 @@
 
            .
        END PROGRAM PARSE-FILE.
+      *> ===============================================================
+      *> SWAP-WIRES.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SWAP-WIRES.
+       DATA DIVISION.
+       LOCAL-STORAGE SECTION.
+       01  LS-WIRE-IDX-1                                 PIC 9(3).
+       01  LS-WIRE-IDX-2                                 PIC 9(3).
+       LINKAGE SECTION.
+       COPY "wire" IN "24".
+       01  IN-WIRE-NAME-1                                PIC X(3).
+       01  IN-WIRE-NAME-2                                PIC X(3).
+       PROCEDURE DIVISION USING BY REFERENCE
+           WIRE-GRP
+           IN-WIRE-NAME-1
+           IN-WIRE-NAME-2.
+
+           DISPLAY "Swap " IN-WIRE-NAME-1 "," IN-WIRE-NAME-2
+           SET WIRE-IDX TO 1
+           SEARCH ALL WIRES
+               WHEN WIRE-NAME(WIRE-IDX) = IN-WIRE-NAME-1
+                   SET LS-WIRE-IDX-1 TO WIRE-IDX
+           END-SEARCH
+
+           SEARCH ALL WIRES
+               WHEN WIRE-NAME(WIRE-IDX) = IN-WIRE-NAME-2
+                   SET LS-WIRE-IDX-2 TO WIRE-IDX
+           END-SEARCH
+
+           SET WIRE-NAME(LS-WIRE-IDX-2) TO IN-WIRE-NAME-1
+           SET WIRE-NAME(LS-WIRE-IDX-1) TO IN-WIRE-NAME-2
+           SORT WIRES
+           .
+
+       END PROGRAM SWAP-WIRES.
+
+      *> ===============================================================
+      *> FIND-INVALID-Z-WIRES
+      *> Return the names of the wires whose name starts with z and
+      *> whose gate isn't the expected XOR gate.
+      *> xNN xor yNN should make a wire aaa.
+      *> This aaa should be xor'd with a bbb, to make zNN.
+      *> Look for xNN xor yNN that doesn't make an aaa which makes
+      *> a zNN.
+      *> Return the list of found zNNs.
+      *> ===============================================================
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. FIND-INVALID-Z-WIRES.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "constants" IN "24".
+       LOCAL-STORAGE SECTION.
+       01  LS-WIRE-IDX                            PIC 9(3).
+       01  LS-EXPECTED-Z-WIRE                     PIC X(3).
+       01  LS-FOUND-OUTPUT-WIRE                   PIC X(3).
+       01  LS-SWAP-LIST-GRP.
+           05  LS-SWAP-LIST-SIZE                  PIC 9(1) VALUE 0.
+           05  LS-SWAP-LIST-ITEMS OCCURS 1 TO 8 TIMES
+               DEPENDING ON LS-SWAP-LIST-SIZE
+               ASCENDING KEY IS LS-SWAP-LIST-ITEM
+               INDEXED BY LS-SWAP-LIST-IDX.
+               10 LS-SWAP-LIST-ITEM               PIC X(3).
+       01  LS-SWAP-GRP.
+           05  LS-SWAP-SIZE                       PIC 9(1) VALUE 0.
+           05  LS-SWAPS OCCURS 1 TO 4 TIMES 
+               DEPENDING ON LS-SWAP-SIZE
+               INDEXED BY LS-SWAP-IDX.
+               10 LS-SWAP-NAME-1                  PIC X(3).
+               10 LS-SWAP-NAME-2                  PIC X(3).
+       LINKAGE SECTION.
+       COPY "wire" IN "24".
+
+       PROCEDURE DIVISION USING BY REFERENCE
+           WIRE-GRP.
+
+           PERFORM VARYING LS-WIRE-IDX FROM 1 BY 1 UNTIL LS-WIRE-IDX >
+               WIRE-SIZE
+               IF (
+                   WIRE-INPUT-1(LS-WIRE-IDX)(1:1) = "x"
+                       OR WIRE-INPUT-1(LS-WIRE-IDX)(1:1) = "y"
+                   )
+                   AND WIRE-GATE(LS-WIRE-IDX) = C-XOR
+                   SET WIRE-IDX TO 1
+                   SEARCH WIRES
+                       VARYING WIRE-IDX
+                       WHEN (
+                               WIRE-INPUT-1(WIRE-IDX) =
+                                   WIRE-NAME(LS-WIRE-IDX)
+                               OR WIRE-INPUT-2(WIRE-IDX) =
+                                   WIRE-NAME(LS-WIRE-IDX)
+                           )
+                           AND WIRE-GATE(WIRE-IDX) = C-XOR
+                           AND WIRE-NAME(WIRE-IDX)(1:1) NOT = "z"
+
+                           SET LS-FOUND-OUTPUT-WIRE TO
+                               WIRE-NAME(WIRE-IDX)
+
+                           STRING "z"
+                               WIRE-INPUT-1(LS-WIRE-IDX)(2:2)
+                               INTO 
+                               LS-EXPECTED-Z-WIRE
+                           END-STRING
+
+                           ADD 1 TO LS-SWAP-SIZE
+                           SET LS-SWAP-NAME-1(LS-SWAP-SIZE) TO
+                               LS-FOUND-OUTPUT-WIRE
+                           SET LS-SWAP-NAME-2(LS-SWAP-SIZE) TO
+                               LS-EXPECTED-Z-WIRE
+                   END-SEARCH
+               END-IF
+           END-PERFORM
+      *> This last one (khg and tvb) I found by hand!
+      *> How? I tried different additions using this program, providng
+      *> numbers to add onthe command line.
+      *> I provided 0 and an increasiningly large number, until the result was
+      *> incorrect.
+      *> I noticed the incorrect numbers started as soon as the answer
+      *> had a 1 in the 25th bit, so I took a look at z25.
+      *> I noticed its grandparent was (x25 and y25) instead of the
+      *> expected (x25 xor y25). I swapped its parent (tvb) to get the
+      *> right parent (khg) which comes from (x25 xor y25).
+           ADD 1 TO LS-SWAP-SIZE
+           SET LS-SWAP-NAME-1(LS-SWAP-SIZE) TO "khg"
+           SET LS-SWAP-NAME-2(LS-SWAP-SIZE) TO "tvb"
+           PERFORM VARYING LS-SWAP-IDX FROM 1 BY 1 UNTIL LS-SWAP-IDX >
+               LS-SWAP-SIZE
+               CALL "SWAP-WIRES" USING
+                   WIRE-GRP
+                   LS-SWAP-NAME-1(LS-SWAP-IDX)
+                   LS-SWAP-NAME-2(LS-SWAP-IDX)
+               ADD 1 TO LS-SWAP-LIST-SIZE
+               SET LS-SWAP-LIST-ITEM(LS-SWAP-LIST-SIZE) TO
+                   LS-SWAP-NAME-1(LS-SWAP-IDX)
+               ADD 1 TO LS-SWAP-LIST-SIZE
+               SET LS-SWAP-LIST-ITEM(LS-SWAP-LIST-SIZE) TO
+                   LS-SWAP-NAME-2(LS-SWAP-IDX)
+               SORT LS-SWAP-LIST-ITEMS
+
+           END-PERFORM
+
+           PERFORM VARYING LS-SWAP-LIST-IDX FROM 1 BY 1 UNTIL 
+               LS-SWAP-LIST-IDX > LS-SWAP-LIST-SIZE
+               DISPLAY LS-SWAP-LIST-ITEM(LS-SWAP-LIST-IDX) "," NO
+                   ADVANCING
+           END-PERFORM
+           DISPLAY SPACE
+           .
+       END PROGRAM FIND-INVALID-Z-WIRES.
 
       *> ===============================================================
       *> EVALUATE-ALL.
@@ -252,8 +403,8 @@
        PROGRAM-ID. SETUP-INPUT.
        DATA DIVISION.
        LOCAL-STORAGE SECTION.
-       01  LS-INPUT-BINARY-STR-1                PIC X(18).
-       01  LS-INPUT-BINARY-STR-2                PIC X(18).
+       01  LS-INPUT-BINARY-STR-1                PIC X(45).
+       01  LS-INPUT-BINARY-STR-2                PIC X(45).
        01  LS-INPUT-1-NAME                      PIC X(3).
        01  LS-INPUT-1-VALUE                     PIC 9(1).
        01  LS-INPUT-2-NAME                      PIC X(3).
@@ -261,8 +412,8 @@
        01  LS-IDX                               PIC 9(2).
        LINKAGE SECTION.
        COPY "wire" IN "24".
-       01  IN-INPUT-1                           PIC 9(14) COMP.
-       01  IN-INPUT-2                           PIC 9(14) COMP.
+       01  IN-INPUT-1                           PIC 9(18) COMP.
+       01  IN-INPUT-2                           PIC 9(18) COMP.
        PROCEDURE DIVISION USING BY REFERENCE
            WIRE-GRP
            IN-INPUT-1

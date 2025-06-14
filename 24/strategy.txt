@@ -1,0 +1,18 @@
+The operations leading to zXX must be XOR.
+
+Four of them aren't XOR:
+
+% grep z 24/data/data.txt |grep -v XOR   
+cdc OR stq -> z21
+x12 AND y12 -> z12
+jbr AND wcs -> z33
+mgw OR bds -> z45
+
+We need to find the right operations for these 4. We must pick from the pool of available XOR operations which aren't already assigned to a zxx:
+
+There are only 47 of them!
+
+% grep XOR 24/data/data.txt|grep -v z|wc -l
+      47
+
+So: try all combos of the 4 items with the 47 items.
