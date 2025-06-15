@@ -2,6 +2,8 @@
 
 These are my exercises for [Advent of Code](https://adventofcode.com/).
 
+<img src="2024.gif">
+
 2024 is the first year I ever completed Advent of Code. I chose COBOL as
 the langauge. I did the exercises over a period of a month and a half
 (may - june 2025).
